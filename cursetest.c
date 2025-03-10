@@ -71,6 +71,7 @@ int main(int argc, char* argv[])
                 printw("%c", *buffer_ptr);
             }
         }
+        getyx(stdscr, y, x);
         refresh;
         fclose(read_file);
     }
@@ -85,47 +86,93 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_LEFT)
         {
+            // If at the start of the line and there is a previous line
             if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
                 current_line->gap_start = current_line->buffer + current_line->number_characters - 1;
                 current_line->gap_end = current_line->buffer + max_x - 1;
+                y--;
+                x = max_x;
             }
+            // If you're in the middle of the line
             else
             {
                 current_line->gap_start--;
                 *current_line->gap_end = *current_line->gap_start;
-                current_line->gap_end--;        
+                current_line->gap_end--;     
+                x--;
             }
             move(y, x);
             refresh();
         }
         else if (input == KEY_RIGHT)
         {
+            // If at the end of the line and the next line already exists
             if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
             {
                 current_line = current_line->next_line;
                 current_line->gap_start = current_line->buffer;
                 current_line->gap_end = current_line->buffer + max_x - 1;
+                y++;
+                x = 0;
             }
+            // If not at the end of the line
             else
             {
                 current_line->gap_end++; 
                 *current_line->gap_start = *current_line->gap_end;
                 current_line->gap_start++;
+                x++;
+            }
+            move(y, x);
+            refresh();
+        }
+        else if (input == KEY_UP)
+        {
+            // If there is a previous line and it has enough characters, go to that position
+            if (current_line->previous_line != NULL && current_line->previous_line->number_characters >= x)
+            {
+                current_line->previous_line->gap_start = current_line->previous_line->buffer + (current_line->gap_start - current_line->buffer);
+                current_line->previous_line->gap_end = current_line->previous_line->buffer + max_x - 1;
+                current_line = current_line->previous_line;
+                y--;
+                move(y, x);
+                refresh();
+            }
+            // If there aren't enough characters
+            else if (current_line->previous_line != NULL && current_line->previous_line->number_characters < x)
+            {
+                current_line->previous_line->gap_start = current_line->previous_line->buffer + current_line->previous_line->number_characters;
+                current_line->previous_line->gap_end = current_line->previous_line->buffer + max_x - 1;
+                current_line = current_line->previous_line;
+                y--;
+                x = current_line->number_characters + 1;
+                move(y, x);
+                refresh();
             }
         }
         else if (input == 127)
         {
-            delete(current_line);
             // Go back to previous line if there is one
             if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
-                current_line->gap_start = current_line->buffer + current_line->number_characters - 1;
+                current_line->gap_start = current_line->buffer + current_line->number_characters;
                 current_line->gap_end = current_line->buffer + max_x - 1;
+                y--;
+                x = max_x;
             }
-            
+            else
+            {
+                delete(current_line);
+                current_line->number_characters--;
+                if (x > 0)
+                {
+                    x--;
+                }
+            }
+
             clear();
             for (line* ptr = lines; ptr != NULL; ptr = ptr->next_line)
             {
@@ -144,6 +191,16 @@ int main(int argc, char* argv[])
             move(y, x);
             refresh();
         }
+        else if (input == 10)
+        {
+            addat_cursor(input, current_line);
+            current_line->next_line = add_line(current_line);
+            current_line = current_line->next_line;
+            y++;
+            x = 0;
+            move(y, x);
+            refresh();
+        }
         else
         {
             // If at end of line and there is a next line
@@ -154,6 +211,8 @@ int main(int argc, char* argv[])
                 current_line->next_line->gap_start = current_line->next_line->buffer;
                 addat_cursor(input, current_line);
                 current_line = current_line->next_line;
+                y++;
+                x = 0;
             }
             // If not at the end of the line
             else
@@ -162,6 +221,7 @@ int main(int argc, char* argv[])
                 if (current_line->number_characters < max_x)
                 {
                     current_line->number_characters++;
+                    x++;
                 }
 
                 // If line is full and there's not a next line yet, make a new line
@@ -169,6 +229,8 @@ int main(int argc, char* argv[])
                 {
                     current_line->next_line = add_line(current_line);
                     current_line = current_line->next_line;
+                    y++;
+                    x = 0;
                 }
             }
 
