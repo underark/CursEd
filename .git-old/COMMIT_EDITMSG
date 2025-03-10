@@ -1,0 +1,18 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Changes not staged for commit:
+#	deleted:    counting1.txt
+#	deleted:    counting2.txt
+#	modified:   curses
+#	modified:   cursetest.c
+#	deleted:    out/build/text/.cmake/api/v1/reply/index-2025-03-04T12-58-38-0864.json
+#	modified:   out/build/text/CMakeFiles/CMakeConfigureLog.yaml
+#
+# Untracked files:
+#	newnew4.txt
+#	out/build/text/.cmake/api/v1/reply/index-2025-03-05T04-48-39-0289.json
+#	z.txt
+#

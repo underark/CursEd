@@ -1,0 +1,3 @@
+/home/alex/projects/texted/build/CMakeFiles/texted.dir
+/home/alex/projects/texted/build/CMakeFiles/edit_cache.dir
+/home/alex/projects/texted/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/alex/projects/texted/build",
+  "command": "/usr/bin/cc   -g -o CMakeFiles/texted.dir/main.c.o -c /home/alex/projects/texted/main.c",
+  "file": "/home/alex/projects/texted/main.c",
+  "output": "CMakeFiles/texted.dir/main.c.o"
+}
+]

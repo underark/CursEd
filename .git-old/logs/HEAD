@@ -1,0 +1,16 @@
+0000000000000000000000000000000000000000 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097218 +0900	commit (initial): prewrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097287 +0900	checkout: moving from master to postwrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097525 +0900	checkout: moving from postwrite to master
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097550 +0900	checkout: moving from master to postwrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097676 +0900	checkout: moving from postwrite to prewrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097770 +0900	checkout: moving from prewrite to prewrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741097850 +0900	checkout: moving from prewrite to master
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741098112 +0900	checkout: moving from master to postwrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741098119 +0900	checkout: moving from postwrite to master
+03f713e3916407570206447863f8c4f4ca3a4822 0000000000000000000000000000000000000000 alex <peter.alex.morris@gmail.com> 1741098259 +0900	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741098259 +0900	Branch: renamed refs/heads/master to refs/heads/main
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741098288 +0900	checkout: moving from main to main
+03f713e3916407570206447863f8c4f4ca3a4822 5676badeccf4ffb602a853b30854d559ef51a5d1 alex <peter.alex.morris@gmail.com> 1741150272 +0900	commit: main
+5676badeccf4ffb602a853b30854d559ef51a5d1 5676badeccf4ffb602a853b30854d559ef51a5d1 git stash <peter.alex.morris@gmail.com> 1741227631 +0900	reset: moving to HEAD
+5676badeccf4ffb602a853b30854d559ef51a5d1 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741227631 +0900	checkout: moving from main to postwrite
+03f713e3916407570206447863f8c4f4ca3a4822 03f713e3916407570206447863f8c4f4ca3a4822 alex <peter.alex.morris@gmail.com> 1741230205 +0900	checkout: moving from postwrite to postwrite
