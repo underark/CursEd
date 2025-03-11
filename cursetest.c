@@ -6,7 +6,6 @@
 typedef struct line line;
 struct line
 {
-    int line_number;
     line* next_line;
     line* previous_line;
     char* buffer;
@@ -23,14 +22,16 @@ line* add_line(line* document_start);
 void free_lines(line* ptr);
 void shuffle(line* line);
 
+// These are used to track how many characters a line should be based on terminal size
 int max_x = 0;
 int max_y = 0;
+
+// These are used to track the coordinates for the cursor
 int x = 0;
 int y = 0;
 
 int main(int argc, char* argv[])
 {
-    line* lines  = NULL;
 
     char* filename = malloc(sizeof(char) * strlen(argv[1]) + 5);
     if (!filename)
@@ -46,7 +47,8 @@ int main(int argc, char* argv[])
     keypad(stdscr, true);
 
     getmaxyx(stdscr, max_y, max_x);
-    lines = add_line(lines);
+
+    line* lines = add_line(lines);
     line* current_line = lines;
 
     FILE* read_file = fopen(filename, "r+");
@@ -55,6 +57,7 @@ int main(int argc, char* argv[])
         char read_buffer;
         while (fread(&read_buffer, 1, 1, read_file) != 0)
         {
+            // Correctly building the data structure from existing data
             addat_cursor(read_buffer, current_line);
             current_line->number_characters++;
             if (current_line->number_characters == max_x)
@@ -72,12 +75,11 @@ int main(int argc, char* argv[])
             }
         }
         getyx(stdscr, y, x);
-        refresh;
+        refresh();
         fclose(read_file);
     }
 
     int input;
-    // Should probably be switch statement
     while ((input = getch()) != KEY_F(1))
     {
         if (input == KEY_F(1))
@@ -87,16 +89,15 @@ int main(int argc, char* argv[])
         else if (input == KEY_LEFT)
         {
             // If at the start of the line and there is a previous line
+            // TO DO
             if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
-                current_line->gap_start = current_line->buffer + current_line->number_characters - 1;
-                current_line->gap_end = current_line->buffer + max_x - 1;
                 y--;
                 x = max_x;
             }
-            // If you're in the middle of the line
-            else
+            // If you're anywhere else in the line
+            else if (current_line->gap_start != current_line->buffer)
             {
                 current_line->gap_start--;
                 *current_line->gap_end = *current_line->gap_start;
@@ -109,11 +110,10 @@ int main(int argc, char* argv[])
         else if (input == KEY_RIGHT)
         {
             // If at the end of the line and the next line already exists
+            // TO DO
             if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
             {
                 current_line = current_line->next_line;
-                current_line->gap_start = current_line->buffer;
-                current_line->gap_end = current_line->buffer + max_x - 1;
                 y++;
                 x = 0;
             }
@@ -133,7 +133,8 @@ int main(int argc, char* argv[])
             // If there is a previous line and it has enough characters, go to that position
             if (current_line->previous_line != NULL && x <= current_line->previous_line->number_characters)
             {
-                // If the line is full, then there's no room to move any existing characters to the right of the gap
+                // If the line is full, then there's no room to move any existing characters
+                // so the gap start and end become the same and we shuffle characters between buffers on insert
                 if (current_line->previous_line->number_characters == max_x)
                 {
                     current_line->previous_line->gap_start = current_line->previous_line->buffer + x;
@@ -152,6 +153,12 @@ int main(int argc, char* argv[])
                         current_line->gap_end -= current_line->gap_start - current_line->buffer - x;
                         memmove(current_line->gap_end + 1, current_line->buffer + x, current_line->gap_start - current_line->buffer - x);
                         current_line->gap_start = current_line->buffer + x;
+                    }
+
+                    if (x > current_line->gap_start - current_line->buffer)
+                    {
+                        endwin();
+                        printf("%li\n", x - (current_line->gap_start - current_line->buffer));
                     }
                     y--;
                     move(y, x);
@@ -233,10 +240,23 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_F(2))
         {
-            addat_cursor(input, current_line);
-            current_line->number_characters++;
-            current_line->next_line = add_line(current_line);
-            current_line = current_line->next_line;
+            if (current_line->gap_start != current_line->buffer + current_line->number_characters - 1)
+            {
+                current_line->next_line = add_line(current_line);
+                current_line->next_line->gap_end -= (current_line->buffer + max_x - 1) - current_line->gap_end;
+                memmove(current_line->next_line->gap_end + 1, current_line->gap_end + 1, (current_line->buffer + max_x - 1) - current_line->gap_end);
+                current_line->number_characters -= (current_line->buffer + max_x - 1) - current_line->gap_end;
+                current_line->next_line->number_characters += (current_line->buffer + max_x - 1) - current_line->gap_end;
+                addat_cursor(input, current_line);
+                current_line = current_line->next_line;
+            }
+            else
+            {
+                addat_cursor(input, current_line);
+                current_line->number_characters++;
+                current_line->next_line = add_line(current_line);
+                current_line = current_line->next_line;
+            }
             y++;
             x = 0;
             move(y, x);
@@ -316,7 +336,7 @@ int main(int argc, char* argv[])
             else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
             {
                 fwrite(ptr2, 1, 1, write_file);
-                printf("%i ", *ptr2);
+                printf("%c", *ptr2);
             }
         }
     }
