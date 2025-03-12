@@ -110,8 +110,11 @@ int main(int argc, char* argv[])
             if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
+                memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
+                current_line->gap_end = current_line->buffer + max_x - 1;
+                current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
                 y--;
-                x = max_x;
+                x = current_line->number_characters;
             }
             // If you're anywhere else in the line
             else if (current_line->gap_start != current_line->buffer)
@@ -128,13 +131,16 @@ int main(int argc, char* argv[])
         {
             // If at the end of the line and the next line already exists
             // TO DO
-            if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
+            if (current_line->gap_start == current_line->buffer + current_line->number_characters && current_line->next_line != NULL)
             {
                 current_line = current_line->next_line;
+                current_line->gap_end -= current_line->gap_start - current_line->buffer;
+                memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
+                current_line->gap_start = current_line->buffer;
                 y++;
                 x = 0;
             }
-            // If not at the end of the line
+            // Stops us running past the end of the line
             else if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
                 current_line->gap_end++; 
@@ -376,9 +382,8 @@ int main(int argc, char* argv[])
         {
             fwrite(&enter, 1, 1, write_file);
         }
+        printf("\n");
     }
-
-    printf("\n%c\n", *(current_line->buffer + max_x - 1));
     
     fclose(write_file);
     free(filename);
