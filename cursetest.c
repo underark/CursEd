@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
                 x = 0;
             }
             // If not at the end of the line
-            else
+            else if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
                 current_line->gap_end++; 
                 *current_line->gap_start = *current_line->gap_end;
