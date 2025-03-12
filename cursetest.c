@@ -55,14 +55,26 @@ int main(int argc, char* argv[])
     if (read_file != NULL)
     {
         char read_buffer;
+        // Correctly building the data structure from existing data
         while (fread(&read_buffer, 1, 1, read_file) != 0)
         {
-            // Correctly building the data structure from existing data
-            addat_cursor(read_buffer, current_line);
-            current_line->number_characters++;
-            if (current_line->number_characters == max_x)
+            // Avoiding any new line characters making their way into the buffer as new lines are purely visual in Cursed
+            if (read_buffer != '\n')
+            {
+                addat_cursor(read_buffer, current_line);
+                current_line->number_characters++;    
+            }
+            // Preserving the structure of each 'line' in the original file
+            else if (read_buffer == '\n')
             {
                 current_line->next_line = add_line(current_line);
+                current_line->next_line->previous_line = current_line;
+                current_line = current_line->next_line;
+            }
+            else if (current_line->number_characters == max_x)
+            {
+                current_line->next_line = add_line(current_line);
+                current_line->next_line->previous_line = current_line;
                 current_line = current_line->next_line;
             }
         }
@@ -72,6 +84,11 @@ int main(int argc, char* argv[])
             for (char* buffer_ptr = ptr->buffer; buffer_ptr < ptr->buffer + max_x; buffer_ptr++)
             {
                 printw("%c", *buffer_ptr);
+            }
+
+            if (ptr->number_characters != max_x && ptr->next_line != NULL)
+            {
+                printw("\n");
             }
         }
         getyx(stdscr, y, x);
@@ -148,17 +165,19 @@ int main(int argc, char* argv[])
                 else
                 {
                     current_line = current_line->previous_line;
+                    // If the cursor position is 'more left' than the gap position
                     if (x < current_line->gap_start - current_line->buffer)
                     {
                         current_line->gap_end -= current_line->gap_start - current_line->buffer - x;
                         memmove(current_line->gap_end + 1, current_line->buffer + x, current_line->gap_start - current_line->buffer - x);
                         current_line->gap_start = current_line->buffer + x;
                     }
-
+                    // If the cursor position is 'more right' than the gap position
                     if (x > current_line->gap_start - current_line->buffer)
                     {
-                        endwin();
-                        printf("%li\n", x - (current_line->gap_start - current_line->buffer));
+                        memmove(current_line->gap_start, current_line->gap_end + 1, x - (current_line->gap_start - current_line->buffer));
+                        current_line->gap_start += x - (current_line->gap_start - current_line->buffer);
+                        current_line->gap_end += x - (current_line->gap_start - current_line->buffer);
                     }
                     y--;
                     move(y, x);
@@ -234,26 +253,35 @@ int main(int argc, char* argv[])
                         printw("%c", *ptr2);
                     }
                 }
+                if (ptr->number_characters != max_x && ptr->next_line != NULL)
+                {
+                    printw("\n");
+                }
             }
             move(y, x);
             refresh();
         }
         else if (input == KEY_F(2))
         {
+            // Shifting characters to a new line - WIP, also needs to account for sandwich lines
             if (current_line->gap_start != current_line->buffer + current_line->number_characters - 1)
             {
+                // Set up the next line
                 current_line->next_line = add_line(current_line);
                 current_line->next_line->gap_end -= (current_line->buffer + max_x - 1) - current_line->gap_end;
+
+                // Moving and tracking how many characters are on each line
                 memmove(current_line->next_line->gap_end + 1, current_line->gap_end + 1, (current_line->buffer + max_x - 1) - current_line->gap_end);
                 current_line->number_characters -= (current_line->buffer + max_x - 1) - current_line->gap_end;
                 current_line->next_line->number_characters += (current_line->buffer + max_x - 1) - current_line->gap_end;
-                addat_cursor(input, current_line);
+
+                //addat_cursor(input, current_line);
                 current_line = current_line->next_line;
             }
             else
             {
-                addat_cursor(input, current_line);
-                current_line->number_characters++;
+                //addat_cursor(input, current_line);
+                //current_line->number_characters++;
                 current_line->next_line = add_line(current_line);
                 current_line = current_line->next_line;
             }
@@ -309,6 +337,10 @@ int main(int argc, char* argv[])
                         printw("%c", *ptr2);
                     }
                 }
+                if (ptr->number_characters != max_x && ptr->next_line != NULL)
+                {
+                    printw("\n");
+                }
             }
             move(y, x);
             refresh();
@@ -323,7 +355,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int i = 0;
+    char enter = '\n';
     for (line* ptr = lines; ptr != NULL; ptr = ptr->next_line)
     {
         for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
@@ -338,6 +370,10 @@ int main(int argc, char* argv[])
                 fwrite(ptr2, 1, 1, write_file);
                 printf("%c", *ptr2);
             }
+        }
+        if (ptr->number_characters != max_x && ptr->next_line != NULL)
+        {
+            fwrite(&enter, 1, 1, write_file);
         }
     }
 
