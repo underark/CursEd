@@ -187,11 +187,12 @@ int main(int argc, char* argv[])
             // If there aren't enough characters
             else if (current_line->previous_line != NULL && current_line->previous_line->number_characters < x)
             {
-                current_line->previous_line->gap_start = current_line->previous_line->buffer + current_line->previous_line->number_characters;
-                current_line->previous_line->gap_end = current_line->previous_line->buffer + max_x - 1;
                 current_line = current_line->previous_line;
+                memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
+                current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
+                current_line->gap_end = current_line->buffer + max_x - 1;
                 y--;
-                x = current_line->number_characters + 1;
+                x = current_line->gap_start - current_line->buffer;
                 move(y, x);
                 refresh();
             }
