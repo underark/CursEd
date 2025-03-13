@@ -20,7 +20,7 @@ void move_left(line* current_line);
 int delete(line* current_line);
 line* add_line(line* document_start);
 void free_lines(line* ptr);
-void shuffle(line* line);
+void shuffle_end(line* current_line);
 
 // These are used to track how many characters a line should be based on terminal size
 int max_x = 0;
@@ -106,7 +106,6 @@ int main(int argc, char* argv[])
         else if (input == KEY_LEFT)
         {
             // If at the start of the line and there is a previous line
-            // TO DO
             if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
@@ -114,7 +113,7 @@ int main(int argc, char* argv[])
                 current_line->gap_end = current_line->buffer + max_x - 1;
                 current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
                 y--;
-                x = current_line->number_characters;
+                x = current_line->number_characters - 1;
             }
             // If you're anywhere else in the line
             else if (current_line->gap_start != current_line->buffer)
@@ -154,7 +153,7 @@ int main(int argc, char* argv[])
         else if (input == KEY_UP)
         {
             // If there is a previous line and it has enough characters, go to that position
-            if (current_line->previous_line != NULL && x <= current_line->previous_line->number_characters)
+            if (current_line->previous_line != NULL && current_line->previous_line->number_characters >= x)
             {
                 // If the line is full, then there's no room to move any existing characters
                 // so the gap start and end become the same and we shuffle characters between buffers on insert
@@ -205,25 +204,49 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_DOWN)
         {
+            // If there's a next line and it has enough characters
             if (current_line->next_line != NULL && current_line->next_line->number_characters >= x)
             {
-                current_line->next_line->gap_start = current_line->next_line->buffer + x + 1;
-                current_line->next_line->gap_end = current_line->next_line->buffer + max_x - 1;
-                current_line = current_line->next_line;
-                y++;
-                move(y, x);
-                refresh();
+                // Full line is the same as before...
+                if (current_line->next_line->number_characters == max_x)
+                {
+                    current_line->next_line->gap_start = current_line->next_line->buffer + x;
+                    current_line->next_line->gap_end = current_line->next_line->gap_start;
+                    current_line = current_line->next_line;
+                    y++;
+                }
+                // Need to move things around again depending on the current position of the buffer
+                else
+                {
+                    current_line = current_line->next_line;
+                    if (x < current_line->gap_start - current_line->buffer)
+                    {
+                        current_line->gap_end -= current_line->gap_start - current_line->buffer - x;
+                        memmove(current_line->gap_end + 1, current_line->buffer + x, current_line->gap_start - current_line->buffer - x);
+                        current_line->gap_start = current_line->buffer + x;
+
+                    }
+                    else if (x > current_line->gap_start - current_line->buffer)
+                    {
+                        memmove(current_line->gap_start, current_line->gap_end + 1, x - (current_line->gap_start - current_line->buffer));
+                        current_line->gap_start += x - (current_line->gap_start - current_line->buffer);
+                        current_line->gap_end += x - (current_line->gap_start - current_line->buffer);
+                    }
+                    y++;
+                }
             }
             else if (current_line->next_line != NULL && current_line->next_line->number_characters < x)
             {
-                current_line->next_line->gap_start = current_line->next_line->buffer + current_line->next_line->number_characters;
-                current_line->next_line->gap_end = current_line->next_line->buffer + max_x - 1;
                 current_line = current_line->next_line;
+                memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
+                current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
+                current_line->gap_end = current_line->buffer + max_x - 1;
                 y++;
-                x = current_line->number_characters + 1;
-                move(y, x);
-                refresh();
+                x = current_line->gap_start - current_line->buffer;
+
             }
+            move(y, x);
+            refresh();
         }
         else if (input == 127)
         {
@@ -297,61 +320,60 @@ int main(int argc, char* argv[])
             move(y, x);
             refresh();
         }
+        // Buffer insertion
         else
         {
-            // If at end of line and there is a next line
-            if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
+            // If line is full and there's not a next line yet, make a new line
+            if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line == NULL)
             {
-                memmove(current_line->next_line->gap_end, current_line->buffer + max_x - 1, 1);
-                current_line->next_line->gap_end--;
-                current_line->next_line->gap_start = current_line->next_line->buffer;
+                addat_cursor(input, current_line);
+                current_line->number_characters++;
+                current_line->next_line = add_line(current_line);
+                current_line = current_line->next_line;
+                y++;
+                x = 0;
+            }
+            // 
+            else if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
+            {
+                shuffle_end(current_line);
                 addat_cursor(input, current_line);
                 current_line = current_line->next_line;
                 y++;
                 x = 0;
             }
-            // If not at the end of the line
+            // If inputting mid line
             else
             {
                 addat_cursor(input, current_line);
-                if (current_line->number_characters < max_x)
-                {
-                    current_line->number_characters++;
-                    x++;
-                }
-
-                // If line is full and there's not a next line yet, make a new line
-                if (current_line->number_characters == max_x && current_line->next_line == NULL)
-                {
-                    current_line->next_line = add_line(current_line);
-                    current_line = current_line->next_line;
-                    y++;
-                    x = 0;
-                }
+                current_line->number_characters++;
+                x++;
             }
 
-            clear();
-            for (line* ptr = lines; ptr != NULL; ptr = ptr->next_line)
+
+        // Handles the display of the document
+        clear();
+        for (line* ptr = lines; ptr != NULL; ptr = ptr->next_line)
+        {
+            for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
             {
-                for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
+                if (ptr->gap_start == ptr->gap_end)
                 {
-                    if (ptr->gap_start == ptr->gap_end)
-                    {
-                        printw("%c", *ptr2);
-                    }
-                    else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
-                    {
-                        printw("%c", *ptr2);
-                    }
+                    printw("%c", *ptr2);
                 }
-                if (ptr->number_characters != max_x && ptr->next_line != NULL)
+                else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
                 {
-                    printw("\n");
+                    printw("%c", *ptr2);
                 }
             }
-            move(y, x);
-            refresh();
+            if (ptr->number_characters != max_x && ptr->next_line != NULL)
+            {
+                printw("\n");
             }
+        }
+        move(y, x);
+        refresh();
+        }
     }
     endwin();
 
@@ -494,17 +516,41 @@ void free_lines(line* ptr)
     free(ptr);
 }
 
-void shuffle(line* line)
+void shuffle_end(line* current_line)
 {
-    if (line->number_characters == max_x && line->next_line != NULL)
-    {
-        shuffle(line->next_line);
-        memmove(line->next_line->buffer, line->buffer + max_x - 1, 1);
-        return;
-    }
+    // We need these variables to change the values within the function because it's pass by value
+    char** gap_end_reference = &current_line->gap_end;
+    char** gap_start_reference = &current_line->gap_start;
 
-    char* gap_start_reference = line->gap_start;
-    memmove(line->buffer + 1, line->buffer, line->number_characters);
-    *(gap_start_reference)++;
+    if (current_line->next_line != NULL && current_line->number_characters == max_x)
+    {
+        char** next_line_gap_end_reference = &current_line->next_line->gap_end;
+        shuffle_end(current_line->next_line);
+
+        // On all the previous full lines
+        memmove(current_line->next_line->gap_end, current_line->buffer + max_x - 1, 1);
+        (*next_line_gap_end_reference)--;
+
+        // Get the hell out on the first line
+        if (current_line->previous_line == NULL)
+        {
+            return;
+        }
+        // Jiggle stuff around on subsequent lines
+        else
+        {
+            *gap_end_reference -= current_line->gap_start - current_line->buffer;
+            memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
+            *gap_start_reference = current_line->gap_end;
+            return;    
+        }
+    }
+    
+    // On the empty line
+    int* number_character_reference = &current_line->number_characters;
+    (*gap_end_reference) -= current_line->gap_start - current_line->buffer;
+    memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
+    *gap_start_reference = current_line->buffer;
+    (*number_character_reference)++;
     return;
 }
