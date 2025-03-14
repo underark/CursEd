@@ -35,6 +35,10 @@ void free_lines(line* ptr);
 paragraph* add_paragraph(paragraph* current_paragraph);
 void free_paragraphs(paragraph* ptr);
 
+//Display functions
+void print_lines(paragraph* paragraphs);
+void write_paragraphs(paragraph* paragraphs, FILE* write_file);
+
 // These are used to track how many characters a line should be based on terminal size
 int max_x = 0;
 int max_y = 0;
@@ -64,7 +68,10 @@ int main(int argc, char* argv[])
     paragraph* paragraphs = NULL;
     paragraphs = add_paragraph(paragraphs);
     paragraphs->paragraph_start = add_line(paragraphs->paragraph_start);
+
+    // These will be used throughout the document to track the current position
     line* current_line = paragraphs->paragraph_start;
+    paragraph* current_paragraph = paragraphs;
 
     FILE* read_file = fopen(filename, "r+");
     if (read_file != NULL)
@@ -74,7 +81,16 @@ int main(int argc, char* argv[])
         while (fread(&read_buffer, 1, 1, read_file) != 0)
         {
             // Avoiding any new line characters making their way into the buffer as new lines are purely visual in Cursed
-            if (read_buffer != '\n')
+            if (current_line->number_characters == max_x - 1)
+            {
+                current_line->next_line = add_line(current_line);
+                current_line->next_line->previous_line = current_line;
+                current_line = current_line->next_line;
+
+                addat_cursor(read_buffer, current_line->previous_line);
+                current_line->previous_line->number_characters++;
+            }
+            else if (read_buffer != '\n')
             {
                 addat_cursor(read_buffer, current_line);
                 current_line->number_characters++;    
@@ -82,15 +98,10 @@ int main(int argc, char* argv[])
             // Preserving the structure of each 'line' in the original file
             else if (read_buffer == '\n')
             {
-                current_line->next_line = add_line(current_line);
-                current_line->next_line->previous_line = current_line;
-                current_line = current_line->next_line;
-            }
-            else if (current_line->number_characters == max_x)
-            {
-                current_line->next_line = add_line(current_line);
-                current_line->next_line->previous_line = current_line;
-                current_line = current_line->next_line;
+                paragraphs->next_paragraph = add_paragraph(current_paragraph);
+                current_paragraph = current_paragraph->next_paragraph;
+                current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                current_line = current_paragraph->paragraph_start;
             }
         }
 
@@ -103,13 +114,20 @@ int main(int argc, char* argv[])
                     printw("%c", *buffer_ptr);
                 }
     
-                if (ptr->number_characters != max_x && ptr->next_line != NULL)
+                if (ptr->number_characters != max_x && ptr->next_line == NULL)
                 {
                     printw("\n");
                 }
+                endwin();
+                printf("%i\n", ptr->number_characters);
             }
         }
+        // Doing this routine to set the cursor correctly because printw will advance it to the next line
         getyx(stdscr, y, x);
+        y--;
+        x = current_line->number_characters;
+        move(y, x);
+
         refresh();
         fclose(read_file);
     }
@@ -288,27 +306,7 @@ int main(int argc, char* argv[])
             }
 
             clear();
-            for (paragraph* para_ptr = paragraphs; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
-            {
-                for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
-                {
-                    for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
-                    {
-                        if (ptr->gap_start == ptr->gap_end)
-                        {
-                            printw("%c", *ptr2);
-                        }
-                        else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
-                        {
-                            printw("%c", *ptr2);
-                        }
-                    }
-                    if (ptr->number_characters != max_x && ptr->next_line != NULL)
-                    {
-                        printw("\n");
-                    }
-                }
-            }
+            print_lines(paragraphs);
             move(y, x);
             refresh();
         }
@@ -331,10 +329,11 @@ int main(int argc, char* argv[])
             }
             else
             {
-                //addat_cursor(input, current_line);
-                //current_line->number_characters++;
-                current_line->next_line = add_line(current_line);
-                current_line = current_line->next_line;
+                current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                current_paragraph->next_paragraph->previous_paragraph = current_paragraph;
+                current_paragraph = current_paragraph->next_paragraph;
+                current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                current_line = current_paragraph->paragraph_start;
             }
             y++;
             x = 0;
@@ -374,27 +373,7 @@ int main(int argc, char* argv[])
 
         // Handles the display of the document
         clear();
-        for (paragraph* para_ptr = paragraphs; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
-        {
-            for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
-            {
-                for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
-                {
-                    if (ptr->gap_start == ptr->gap_end)
-                    {
-                        printw("%c", *ptr2);
-                    }
-                    else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
-                    {
-                        printw("%c", *ptr2);
-                    }
-                }
-                if (ptr->number_characters != max_x && ptr->next_line != NULL)
-                {
-                    printw("\n");
-                }
-            }
-        }
+        print_lines(paragraphs);
         move(y, x);
         refresh();
         }
@@ -408,31 +387,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    char enter = '\n';
-    for (paragraph* para_ptr = paragraphs; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
-    {
-        for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
-        {
-            for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
-            {
-                if (ptr->gap_start == ptr->gap_end)
-                {
-                    fwrite(ptr2, 1, 1, write_file);
-                    printf("%c", *ptr2);
-                }
-                else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
-                {
-                    fwrite(ptr2, 1, 1, write_file);
-                    printf("%c", *ptr2);
-                }
-            }
-            if (ptr->number_characters != max_x && ptr->next_line != NULL)
-            {
-                fwrite(&enter, 1, 1, write_file);
-            }
-            printf("\n");
-        }
-    }
+    write_paragraphs(paragraphs, write_file);
     
     fclose(write_file);
     free(filename);
@@ -572,4 +527,58 @@ void shuffle_end(line* current_line)
     *gap_start_reference = current_line->buffer;
     (*number_character_reference)++;
     return;
+}
+
+void print_lines(paragraph* paragraphs)
+{
+    for (paragraph* para_ptr = paragraphs; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
+    {
+        for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
+        {
+            for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
+            {
+                if (ptr->gap_start == ptr->gap_end)
+                {
+                    printw("%c", *ptr2);
+                }
+                else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
+                {
+                    printw("%c", *ptr2);
+                }
+            }
+            if (ptr->number_characters != max_x && ptr->next_line == NULL)
+            {
+                printw("\n");
+            }
+        }
+    }
+}
+
+void write_paragraphs(paragraph* paragraphs, FILE* write_file)
+{
+    char enter = '\n';
+    for (paragraph* para_ptr = paragraphs; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
+    {
+        for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
+        {
+            for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
+            {
+                if (ptr->gap_start == ptr->gap_end)
+                {
+                    fwrite(ptr2, 1, 1, write_file);
+                    printf("%c", *ptr2);
+                }
+                else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
+                {
+                    fwrite(ptr2, 1, 1, write_file);
+                    printf("%c", *ptr2);
+                }
+            }
+            if (ptr->number_characters != max_x && ptr->next_line != NULL)
+            {
+                fwrite(&enter, 1, 1, write_file);
+            }
+            printf("\n");
+        }
+    }
 }
