@@ -114,12 +114,10 @@ int main(int argc, char* argv[])
                     printw("%c", *buffer_ptr);
                 }
     
-                if (ptr->number_characters != max_x && ptr->next_line == NULL)
+                if (ptr->next_line == NULL)
                 {
                     printw("\n");
                 }
-                endwin();
-                printf("%i\n", ptr->number_characters);
             }
         }
         // Doing this routine to set the cursor correctly because printw will advance it to the next line
@@ -313,19 +311,23 @@ int main(int argc, char* argv[])
         else if (input == KEY_F(2))
         {
             // Shifting characters to a new line - WIP, also needs to account for sandwich lines
-            if (current_line->gap_start != current_line->buffer + current_line->number_characters - 1)
+            if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
-                // Set up the next line
-                current_line->next_line = add_line(current_line);
-                current_line->next_line->gap_end -= (current_line->buffer + max_x - 1) - current_line->gap_end;
+                // Set up the next paragraph and first line
+                current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                current_paragraph = current_paragraph->next_paragraph;
+                current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                current_paragraph->paragraph_start->gap_end -= current_line->buffer + max_x - 1 - current_line->gap_end;
 
-                // Moving and tracking how many characters are on each line
-                memmove(current_line->next_line->gap_end + 1, current_line->gap_end + 1, (current_line->buffer + max_x - 1) - current_line->gap_end);
-                current_line->number_characters -= (current_line->buffer + max_x - 1) - current_line->gap_end;
-                current_line->next_line->number_characters += (current_line->buffer + max_x - 1) - current_line->gap_end;
+                // Update character counts
+                current_line->number_characters -= current_line->buffer + max_x - 1 - current_line->gap_end;
+                current_paragraph->paragraph_start->number_characters += current_line->buffer + max_x - 1 - current_line->gap_end;
 
-                //addat_cursor(input, current_line);
-                current_line = current_line->next_line;
+                // Move the data in the buffer over, adjust the gap
+                memmove(current_paragraph->paragraph_start->gap_end + 1, current_line->gap_end + 1, current_line->buffer + max_x - 1 - current_line->gap_end);
+                current_line->gap_end += current_line->buffer + max_x - 1 - current_line->gap_end;
+
+                current_line = current_paragraph->paragraph_start;
             }
             else
             {
@@ -337,6 +339,8 @@ int main(int argc, char* argv[])
             }
             y++;
             x = 0;
+            clear();
+            print_lines(paragraphs);
             move(y, x);
             refresh();
         }
@@ -369,7 +373,6 @@ int main(int argc, char* argv[])
                 current_line->number_characters++;
                 x++;
             }
-
 
         // Handles the display of the document
         clear();
@@ -546,7 +549,7 @@ void print_lines(paragraph* paragraphs)
                     printw("%c", *ptr2);
                 }
             }
-            if (ptr->number_characters != max_x && ptr->next_line == NULL)
+            if (ptr->next_line == NULL)
             {
                 printw("\n");
             }
@@ -574,11 +577,10 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
                     printf("%c", *ptr2);
                 }
             }
-            if (ptr->number_characters != max_x && ptr->next_line != NULL)
+            if (ptr->next_line == NULL)
             {
                 fwrite(&enter, 1, 1, write_file);
             }
-            printf("\n");
         }
     }
 }
