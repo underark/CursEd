@@ -206,9 +206,10 @@ int main(int argc, char* argv[])
                 {
                     if (current_paragraph->previous_paragraph->paragraph_end->number_characters == max_x)
                     {
-                        current_paragraph->previous_paragraph->paragraph_end->gap_start = current_line->previous_line->buffer + x;
-                        current_paragraph->previous_paragraph->paragraph_end->gap_end = current_line->previous_line->gap_start;
+                        current_paragraph = current_paragraph->previous_paragraph;
                         current_line = current_paragraph->previous_paragraph->paragraph_end; 
+                        current_line->gap_start = current_line->buffer + x;
+                        current_line->gap_end = current_line->gap_start;
                         y--;
                         move(y, x);
                         refresh();
@@ -216,6 +217,7 @@ int main(int argc, char* argv[])
                     else
                     {
                         current_line = current_paragraph->previous_paragraph->paragraph_end;
+                        current_paragraph = current_paragraph->previous_paragraph;
                         // If the cursor position is 'more left' than the gap position
                         if (x < current_line->gap_start - current_line->buffer)
                         {
@@ -246,7 +248,8 @@ int main(int argc, char* argv[])
                     move(y, x);
                     refresh();
                 }    
-            }          
+            }
+            // MOving up a line in a paragraph
             // If there is a previous line in the paragraph and it has enough characters, go to that position
             else if (current_line->previous_line != NULL && current_line->previous_line->number_characters >= x)
             {
@@ -371,7 +374,7 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_F(2))
         {
-            // Shifting characters to a new line - WIP, also needs to account for sandwich lines
+            // Making a new paragraph mid line
             if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
                 // Set up the next paragraph and first line
@@ -417,6 +420,7 @@ int main(int argc, char* argv[])
                     current_line = current_paragraph->paragraph_start;
                 }
             }
+            // Making a new paragraph elsewhere
             else
             {
                 if (current_paragraph->next_paragraph != NULL)
@@ -696,12 +700,12 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
                 if (ptr->gap_start == ptr->gap_end)
                 {
                     fwrite(ptr2, 1, 1, write_file);
-                    printf("%c", *ptr2);
+                    //printf("%c", *ptr2);
                 }
                 else if (ptr2 < ptr->gap_start || ptr2 > ptr->gap_end)
                 {
                     fwrite(ptr2, 1, 1, write_file);
-                    printf("%c", *ptr2);
+                    //printf("%c", *ptr2);
                 }
             }
             if (ptr->next_line == NULL && para_ptr->next_paragraph != NULL)
