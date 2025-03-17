@@ -199,8 +199,56 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_UP)
         {
-            // If there is a previous line and it has enough characters, go to that position
-            if (current_line->previous_line != NULL && current_line->previous_line->number_characters >= x)
+            // Moving up a paragraph
+            if (current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
+            {
+                if (current_paragraph->previous_paragraph->paragraph_end->number_characters >= x)
+                {
+                    if (current_paragraph->previous_paragraph->paragraph_end->number_characters == max_x)
+                    {
+                        current_paragraph->previous_paragraph->paragraph_end->gap_start = current_line->previous_line->buffer + x;
+                        current_paragraph->previous_paragraph->paragraph_end->gap_end = current_line->previous_line->gap_start;
+                        current_line = current_paragraph->previous_paragraph->paragraph_end; 
+                        y--;
+                        move(y, x);
+                        refresh();
+                    }
+                    else
+                    {
+                        current_line = current_paragraph->previous_paragraph->paragraph_end;
+                        // If the cursor position is 'more left' than the gap position
+                        if (x < current_line->gap_start - current_line->buffer)
+                        {
+                            current_line->gap_end -= current_line->gap_start - current_line->buffer - x;
+                            memmove(current_line->gap_end + 1, current_line->buffer + x, current_line->gap_start - current_line->buffer - x);
+                            current_line->gap_start = current_line->buffer + x;
+                        }
+                        // If the cursor position is 'more right' than the gap position
+                        else if (x > current_line->gap_start - current_line->buffer)
+                        {
+                            memmove(current_line->gap_start, current_line->gap_end + 1, x - (current_line->gap_start - current_line->buffer));
+                            current_line->gap_start += x - (current_line->gap_start - current_line->buffer);
+                            current_line->gap_end += x - (current_line->gap_start - current_line->buffer);
+                        }
+                        y--;
+                        move(y, x);
+                        refresh();
+                    }
+                }
+                else if (current_paragraph->previous_paragraph->paragraph_end->number_characters < x)
+                {
+                    current_line = current_paragraph->previous_paragraph->paragraph_end;
+                    memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
+                    current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
+                    current_line->gap_end = current_line->buffer + max_x - 1;
+                    y--;
+                    x = current_line->gap_start - current_line->buffer;
+                    move(y, x);
+                    refresh();
+                }    
+            }          
+            // If there is a previous line in the paragraph and it has enough characters, go to that position
+            else if (current_line->previous_line != NULL && current_line->previous_line->number_characters >= x)
             {
                 // If the line is full, then there's no room to move any existing characters
                 // so the gap start and end become the same and we shuffle characters between buffers on insert
@@ -632,8 +680,6 @@ void print_lines(paragraph* paragraphs)
             {
                 printw("\n");
             }
-            endwin();
-            printf("%i\n", ptr->number_characters);
         }
     }
 }
