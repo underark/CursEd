@@ -18,6 +18,7 @@ typedef struct paragraph paragraph;
 struct paragraph
 {
     line* paragraph_start;
+    line* paragraph_end;
     paragraph* previous_paragraph;
     paragraph* next_paragraph;
 };
@@ -98,7 +99,8 @@ int main(int argc, char* argv[])
             // Preserving the structure of each 'line' in the original file
             else if (read_buffer == '\n')
             {
-                paragraphs->next_paragraph = add_paragraph(current_paragraph);
+                current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                current_paragraph->paragraph_end = current_line;
                 current_paragraph = current_paragraph->next_paragraph;
                 current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
                 current_line = current_paragraph->paragraph_start;
@@ -139,8 +141,19 @@ int main(int argc, char* argv[])
         }
         else if (input == KEY_LEFT)
         {
+            if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
+            {
+                line* previous_paragraph_end = current_paragraph->previous_paragraph->paragraph_end;
+                memmove(previous_paragraph_end->gap_start, previous_paragraph_end->gap_end + 1, previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->buffer);
+                previous_paragraph_end->gap_start += previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->gap_end;
+                previous_paragraph_end->gap_end = previous_paragraph_end->buffer + max_x - 1;
+                current_paragraph = current_paragraph->previous_paragraph;
+                current_line = previous_paragraph_end;
+                y--;
+                x = current_line->number_characters;
+            }
             // If at the start of the line and there is a previous line
-            if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
+            else if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
                 memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
@@ -314,28 +327,71 @@ int main(int argc, char* argv[])
             if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
                 // Set up the next paragraph and first line
-                current_paragraph->next_paragraph = add_paragraph(current_paragraph);
-                current_paragraph = current_paragraph->next_paragraph;
-                current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
-                current_paragraph->paragraph_start->gap_end -= current_line->buffer + max_x - 1 - current_line->gap_end;
+                if (current_paragraph->next_paragraph == NULL)
+                {
+                    current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    current_paragraph->paragraph_end = current_line;
+                    current_paragraph = current_paragraph->next_paragraph;
+                    current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                    current_paragraph->paragraph_start->gap_end -= current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    // Update character counts
+                    current_line->number_characters -= current_line->buffer + max_x - 1 - current_line->gap_end;
+                    current_paragraph->paragraph_start->number_characters += current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    // Move the data in the buffer over, adjust the gap
+                    memmove(current_paragraph->paragraph_start->gap_end + 1, current_line->gap_end + 1, current_line->buffer + max_x - 1 - current_line->gap_end);
+                    current_line->gap_end += current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    current_line = current_paragraph->paragraph_start;
+                }
+                else
+                {
+                    paragraph* original_next_paragraph = current_paragraph->next_paragraph;
 
-                // Update character counts
-                current_line->number_characters -= current_line->buffer + max_x - 1 - current_line->gap_end;
-                current_paragraph->paragraph_start->number_characters += current_line->buffer + max_x - 1 - current_line->gap_end;
+                    current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    original_next_paragraph->previous_paragraph = current_paragraph->next_paragraph;
 
-                // Move the data in the buffer over, adjust the gap
-                memmove(current_paragraph->paragraph_start->gap_end + 1, current_line->gap_end + 1, current_line->buffer + max_x - 1 - current_line->gap_end);
-                current_line->gap_end += current_line->buffer + max_x - 1 - current_line->gap_end;
-
-                current_line = current_paragraph->paragraph_start;
+                    current_paragraph->paragraph_end = current_line;
+                    current_paragraph = current_paragraph->next_paragraph;
+                    current_paragraph->next_paragraph = original_next_paragraph;
+                    current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                    current_paragraph->paragraph_start->gap_end -= current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    // Update character counts
+                    current_line->number_characters -= current_line->buffer + max_x - 1 - current_line->gap_end;
+                    current_paragraph->paragraph_start->number_characters += current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    // Move the data in the buffer over, adjust the gap
+                    memmove(current_paragraph->paragraph_start->gap_end + 1, current_line->gap_end + 1, current_line->buffer + max_x - 1 - current_line->gap_end);
+                    current_line->gap_end += current_line->buffer + max_x - 1 - current_line->gap_end;
+    
+                    current_line = current_paragraph->paragraph_start;
+                }
             }
             else
             {
-                current_paragraph->next_paragraph = add_paragraph(current_paragraph);
-                current_paragraph->next_paragraph->previous_paragraph = current_paragraph;
-                current_paragraph = current_paragraph->next_paragraph;
-                current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
-                current_line = current_paragraph->paragraph_start;
+                if (current_paragraph->next_paragraph != NULL)
+                {
+                    paragraph* original_next_paragraph = current_paragraph->next_paragraph;
+
+                    current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    original_next_paragraph->previous_paragraph = current_paragraph->next_paragraph;
+                    current_paragraph->next_paragraph->next_paragraph = original_next_paragraph;
+
+                    current_paragraph->paragraph_end = current_line;
+                    current_paragraph = current_paragraph->next_paragraph;
+                    current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                    current_line = current_paragraph->paragraph_start;                    
+                }
+                else
+                {
+                    current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    current_paragraph->paragraph_end = current_line;
+                    current_paragraph = current_paragraph->next_paragraph;
+                    current_paragraph->paragraph_start = add_line(current_paragraph->paragraph_start);
+                    current_line = current_paragraph->paragraph_start;
+                }
             }
             y++;
             x = 0;
@@ -354,17 +410,28 @@ int main(int argc, char* argv[])
                 current_line->number_characters++;
                 current_line->next_line = add_line(current_line);
                 current_line = current_line->next_line;
+                current_paragraph->paragraph_end = current_line;
                 y++;
                 x = 0;
             }
-            // 
+            // If adding at the end of a full line
             else if (current_line->gap_start == current_line->buffer + max_x - 1 && current_line->next_line != NULL)
             {
                 shuffle_end(current_line);
                 addat_cursor(input, current_line);
                 current_line = current_line->next_line;
+                current_line->gap_start = current_line->buffer;
+                current_line->gap_end = current_line->buffer + max_x - 2 - current_line->number_characters;
                 y++;
                 x = 0;
+            }
+            // If adding to anywhere other than the end of a full line
+            else if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer + max_x - 1 && current_line->next_line != NULL)
+            {
+                shuffle_end(current_line);
+                memmove(current_line->gap_start + 1, current_line->gap_start, current_line->buffer + max_x - 1 - current_line->gap_start);
+                addat_cursor(input, current_line);
+                x++;
             }
             // If inputting mid line
             else
@@ -410,7 +477,7 @@ void addat_cursor(int input, line* current_line)
     else
     {
         *current_line->gap_start = input;
-        (*gap_start_reference)++;
+        current_line->gap_start++;
     }
 }
 
@@ -478,6 +545,7 @@ paragraph* add_paragraph(paragraph* current_paragraph)
     new_paragraph->previous_paragraph = current_paragraph;
     new_paragraph->next_paragraph = NULL;
     new_paragraph->paragraph_start = NULL;
+    new_paragraph->paragraph_end == NULL;
 
     return new_paragraph;
 }
@@ -516,19 +584,30 @@ void shuffle_end(line* current_line)
         // Jiggle stuff around on subsequent lines
         else
         {
-            *gap_end_reference -= current_line->gap_start - current_line->buffer;
-            memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
-            *gap_start_reference = current_line->gap_end;
+            memmove(current_line->buffer + 1, current_line->buffer, current_line->buffer + max_x - 2 - current_line->buffer);
             return;    
         }
     }
     
     // On the empty line
-    int* number_character_reference = &current_line->number_characters;
-    (*gap_end_reference) -= current_line->gap_start - current_line->buffer;
-    memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
-    *gap_start_reference = current_line->buffer;
-    (*number_character_reference)++;
+    if (current_line->number_characters > 0)
+    {
+        current_line->gap_end -= current_line->gap_start - current_line->buffer;
+        memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
+        current_line->gap_start = current_line->buffer;
+        current_line->number_characters++;
+    }
+    else
+    {
+        current_line->gap_end--;
+        memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
+        current_line->number_characters++;
+    }
+    
+    if (current_line->number_characters == max_x)
+    {
+        current_line->next_line = add_line(current_line);
+    }
     return;
 }
 
@@ -553,6 +632,8 @@ void print_lines(paragraph* paragraphs)
             {
                 printw("\n");
             }
+            endwin();
+            printf("%i\n", ptr->number_characters);
         }
     }
 }
@@ -577,7 +658,7 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
                     printf("%c", *ptr2);
                 }
             }
-            if (ptr->next_line == NULL)
+            if (ptr->next_line == NULL && para_ptr->next_paragraph != NULL)
             {
                 fwrite(&enter, 1, 1, write_file);
             }
