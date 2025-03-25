@@ -42,6 +42,9 @@ void free_paragraphs(paragraph* ptr);
 void print_lines(paragraph* paragraphs);
 void write_paragraphs(paragraph* paragraphs, FILE* write_file);
 void update_view(line* current_line);
+void update_cursor_position(line* current_line);
+void decrement_line_numbers(paragraph* current_paragraph, line* current_line);
+void increment_line_numbers(paragraph* current_paragraph, line* current_line);
 
 // These are used to track how many characters a line should be based on terminal size
 int max_x = 0;
@@ -57,7 +60,6 @@ int display_bottom = 0;
 
 int main(int argc, char* argv[])
 {
-
     char* filename = malloc(sizeof(char) * strlen(argv[1]) + 5);
     if (!filename)
     {
@@ -143,10 +145,6 @@ int main(int argc, char* argv[])
                 previous_paragraph_end->gap_end = previous_paragraph_end->buffer + max_x - 1;
                 current_paragraph = current_paragraph->previous_paragraph;
                 current_line = previous_paragraph_end;
-                y--;
-                x = current_line->number_characters;
-                move(y, x);
-                refresh();
             }
             // If at the start of the line and there is a previous line
             else if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
@@ -155,10 +153,6 @@ int main(int argc, char* argv[])
                 memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
                 current_line->gap_end = current_line->buffer + max_x - 1;
                 current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
-                y--;
-                x = current_line->number_characters - 1;
-                move(y, x);
-                refresh();
             }
             // If you're anywhere else in the line
             else if (current_line->gap_start != current_line->buffer && current_line->number_characters != max_x)
@@ -166,7 +160,7 @@ int main(int argc, char* argv[])
                 current_line->gap_start--;
                 *current_line->gap_end = *current_line->gap_start;
                 current_line->gap_end--;     
-                x--;
+                x = current_line->gap_start - current_line->buffer;
             }
             else if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer)
             {
@@ -176,6 +170,7 @@ int main(int argc, char* argv[])
             }
             clear();
             update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
@@ -222,6 +217,7 @@ int main(int argc, char* argv[])
             }
             clear();
             update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
@@ -313,6 +309,7 @@ int main(int argc, char* argv[])
             }
             clear();
             update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
@@ -414,32 +411,66 @@ int main(int argc, char* argv[])
             }
             clear();
             update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
         }
         else if (input == 127)
         {
-            // Go back to previous line if there is one
-            if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
+            // If at the beginning of a paragraph
+            if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
             {
-                current_line = current_line->previous_line;
-                current_line->gap_start = current_line->buffer + current_line->number_characters;
-                current_line->gap_end = current_line->buffer + max_x - 1;
-                y--;
-                x = max_x;
-            }
-            else
-            {
-                delete(current_line);
-                current_line->number_characters--;
-                if (x > 0)
+                paragraph* temporary_current_paragraph = current_paragraph;
+                current_paragraph = current_paragraph->previous_paragraph;
+                current_line = current_paragraph->paragraph_end;
+
+                if (current_line->gap_start != current_line->buffer + current_line->number_characters)
                 {
-                    x--;
+                    int move_size = current_line->buffer_end - current_line->gap_end;
+                    memmove(current_line->gap_start, current_line->gap_end + 1, move_size);
+                    current_line->gap_start += move_size + 1;
+                    current_line->gap_end = current_line->buffer_end;
                 }
+                else
+                {
+                    current_line->gap_start = current_line->buffer + current_line->number_characters + 1;
+                }
+
+                current_paragraph->next_paragraph = temporary_current_paragraph->next_paragraph;
+                if (current_paragraph->next_paragraph != NULL)
+                {
+                    current_paragraph->next_paragraph->previous_paragraph = current_paragraph;
+                }
+
+                free(temporary_current_paragraph->paragraph_start->buffer);
+                free(temporary_current_paragraph->paragraph_start);
+                free(temporary_current_paragraph);
+                decrement_line_numbers(current_paragraph, current_line);
+            }
+            // If at the beginning of the line but not at the beginning of the paragraph
+            else if (current_line->gap_start == current_line->buffer && current_line->number_characters == 0 && current_line->previous_line != NULL)
+            {
+                line* temporary_current_line = current_line;
+                current_line = current_line->previous_line;
+
+                current_line->next_line = temporary_current_line->next_line;
+                current_line->next_line->previous_line = current_line;
+                free(temporary_current_line->buffer);
+                free(temporary_current_line);
+
+                decrement_line_numbers(current_paragraph, current_line);
+            }
+            // Mid-line
+            else if (current_line->gap_start != current_line->buffer);
+            {
+                current_line->gap_start--;
+                current_line->number_characters--;
             }
 
             clear();
+            update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
@@ -521,6 +552,7 @@ int main(int argc, char* argv[])
             x = 0;
             clear();
             update_view(current_line);
+            update_cursor_position(current_line);
             print_lines(paragraphs);
             move(y, x);
             refresh();
@@ -587,6 +619,8 @@ int main(int argc, char* argv[])
 
         // Handles the display of the document
         clear();
+        update_cursor_position(current_line);
+        update_view(current_line);
         print_lines(paragraphs);
         move(y, x);
         refresh();
@@ -604,7 +638,6 @@ int main(int argc, char* argv[])
     write_paragraphs(paragraphs, write_file);
     
     printf("%i\n", current_line->line_number);
-    printf("%i\n", display_top);
     fclose(write_file);
     free(filename);
     free_paragraphs(paragraphs);
@@ -639,26 +672,6 @@ void move_right(line* current_line)
 
 int delete(line* current_line)
 {
-    char** gap_start_reference = &current_line->gap_start;
-    char** gap_end_reference = &current_line->gap_end;
-    line** current_line_reference = &current_line;
-
-    if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL)
-    {
-        return 1;
-    }
-    else if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
-    {
-        current_line->previous_line->gap_start = current_line->buffer + current_line->number_characters - 1;
-        current_line->previous_line->gap_end = current_line->previous_line->buffer + max_x - 1;
-        *current_line_reference = current_line->previous_line;
-        return 2;
-    }
-    else
-    {
-        (*gap_start_reference)--;
-        return 0;
-    }
 }
 
 line* add_line(line* previous_line)
@@ -816,6 +829,52 @@ void update_view(line* current_line)
     else if (current_line->line_number > display_bottom)
     {
         display_top = current_line->line_number - view_size;
+    }
+}
+
+void update_cursor_position(line* current_line)
+{
+    if (current_line->line_number == 0)
+    {
+        y = 0;
+    }
+    else if (current_line->line_number % (max_y - 1) == 0)
+    {
+        y = max_y - 1;
+    }
+    else
+    {
+        y = current_line->line_number % (max_y - 1);
+    }
+
+    x = current_line->gap_start - current_line->buffer;
+}
+
+void decrement_line_numbers(paragraph* current_paragraph, line* current_line)
+{
+    for (paragraph* para_ptr = current_paragraph; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
+    {
+        for (line* line_ptr = para_ptr->paragraph_start; line_ptr != NULL; line_ptr = line_ptr->next_line)
+        {
+            if (line_ptr->line_number > current_line->line_number)
+            {
+                line_ptr->line_number--;
+            }
+        }
+    }
+}
+
+void increment_line_numbers (paragraph* current_paragraph, line* current_line)
+{
+    for (paragraph* para_ptr = current_paragraph; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
+    {
+        for (line* line_ptr = para_ptr->paragraph_start; line_ptr != NULL; line_ptr = line_ptr->next_line)
+        {
+            if (line_ptr->line_number > current_line->line_number)
+            {
+                line_ptr->line_number++;
+            }
+        }
     }
 }
 
