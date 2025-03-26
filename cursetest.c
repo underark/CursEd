@@ -31,6 +31,7 @@ void move_right(line* current_line);
 void move_left(line* current_line);
 int delete(line* current_line);
 void shuffle_end(line* current_line, int line_counter);
+void shuffle_start(paragraph* current_paragraph, line* current_line);
 
 // Data structure functions
 line* add_line(line* document_start);
@@ -418,56 +419,100 @@ int main(int argc, char* argv[])
         }
         else if (input == 127)
         {
-            // If at the beginning of a paragraph
-            if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
+            if (current_line->number_characters == 0 && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
             {
-                paragraph* temporary_current_paragraph = current_paragraph;
+                paragraph* empty_paragraph = current_paragraph;
+
                 current_paragraph = current_paragraph->previous_paragraph;
                 current_line = current_paragraph->paragraph_end;
 
-                if (current_line->gap_start != current_line->buffer + current_line->number_characters)
+                if (current_line->number_characters == max_x)
                 {
-                    int move_size = current_line->buffer_end - current_line->gap_end;
+                    current_line->gap_start = current_line->buffer_end;
+                    current_line->gap_end = current_line->buffer_end;
+                    current_line->number_characters--;
+                }
+                else if (current_line->gap_start != current_line->buffer + current_line->number_characters)
+                {
+                    int move_size = current_line->gap_start - current_line->buffer;
+
                     memmove(current_line->gap_start, current_line->gap_end + 1, move_size);
-                    current_line->gap_start += move_size + 1;
+                    current_line->gap_start = current_line->buffer + current_line->number_characters;
                     current_line->gap_end = current_line->buffer_end;
                 }
-                else
-                {
-                    current_line->gap_start = current_line->buffer + current_line->number_characters + 1;
-                }
 
-                current_paragraph->next_paragraph = temporary_current_paragraph->next_paragraph;
+                current_paragraph->next_paragraph = empty_paragraph->next_paragraph;
                 if (current_paragraph->next_paragraph != NULL)
                 {
                     current_paragraph->next_paragraph->previous_paragraph = current_paragraph;
+                    decrement_line_numbers(current_paragraph, current_line);
                 }
-
-                free(temporary_current_paragraph->paragraph_start->buffer);
-                free(temporary_current_paragraph->paragraph_start);
-                free(temporary_current_paragraph);
-                decrement_line_numbers(current_paragraph, current_line);
+                free(empty_paragraph->paragraph_start->buffer);
+                free(empty_paragraph->paragraph_start);
+                free(empty_paragraph);
             }
-            // If at the beginning of the line but not at the beginning of the paragraph
-            else if (current_line->gap_start == current_line->buffer && current_line->number_characters == 0 && current_line->previous_line != NULL)
+            else if (current_line->number_characters == 0 && current_line->previous_line != NULL)
             {
-                line* temporary_current_line = current_line;
+                line* empty_line = current_line;
+
                 current_line = current_line->previous_line;
 
-                current_line->next_line = temporary_current_line->next_line;
-                current_line->next_line->previous_line = current_line;
-                free(temporary_current_line->buffer);
-                free(temporary_current_line);
+                if (current_line->number_characters == max_x)
+                {
+                    current_line->gap_start = current_line->buffer_end;
+                    current_line->gap_end = current_line->buffer_end;
+                    current_line->number_characters--;
+                }
+                else if (current_line->gap_start != current_line->buffer + current_line->number_characters)
+                {
+                    int move_size = current_line->gap_start - current_line->buffer;
 
-                decrement_line_numbers(current_paragraph, current_line);
+                    memmove(current_line->gap_start, current_line->gap_end + 1, move_size);
+                    current_line->gap_start = current_line->buffer + current_line->number_characters;
+                    current_line->gap_end = current_line->buffer_end;
+                }
+
+                current_line->next_line = empty_line->next_line;
+                if (current_line->next_line != NULL)
+                {
+                    current_line->next_line->previous_line = current_line;
+                    decrement_line_numbers(current_paragraph, current_line);
+                }
+                free(empty_line->buffer);
+                free(empty_line);
             }
-            // Mid-line
-            else if (current_line->gap_start != current_line->buffer);
+            else if (current_line->number_characters == max_x && current_line->next_line != NULL)
             {
+                int move_size = current_line->buffer_end - current_line->gap_start + 1;
+                memmove(current_line->gap_start, current_line->gap_start + 1, move_size);
+                
+                shuffle_start(current_paragraph, current_line);
                 current_line->gap_start--;
-                current_line->number_characters--;
-            }
+                current_line->gap_end--;
 
+                if (current_paragraph->paragraph_end->number_characters == 0)
+                {
+                    current_paragraph->paragraph_end = current_paragraph->paragraph_end->previous_line;
+                    free(current_paragraph->paragraph_end->next_line->buffer);
+                    free(current_paragraph->paragraph_end->next_line);
+                    current_paragraph->paragraph_end->next_line = NULL;
+                    decrement_line_numbers(current_paragraph, current_paragraph->paragraph_end);
+                }
+            }
+            else if (current_line->number_characters > 0)
+            {
+                if (current_line->number_characters == max_x)
+                {
+                    current_line->number_characters--;
+                    current_line->gap_start--;
+                    current_line->gap_end--;
+                }
+                else
+                {
+                    current_line->gap_start--;
+                    current_line->number_characters--;
+                }
+            }
             clear();
             update_view(current_line);
             update_cursor_position(current_line);
@@ -636,8 +681,7 @@ int main(int argc, char* argv[])
     }
 
     write_paragraphs(paragraphs, write_file);
-    
-    printf("%i\n", current_line->line_number);
+    printf("%i\n", current_line->number_characters);
     fclose(write_file);
     free(filename);
     free_paragraphs(paragraphs);
@@ -683,7 +727,7 @@ line* add_line(line* previous_line)
     new_line->buffer = calloc(max_x, sizeof(char));
     new_line->buffer_end = new_line->buffer + max_x - 1;
     new_line->gap_start = new_line->buffer;
-    new_line->gap_end = new_line->buffer + max_x - 1;
+    new_line->gap_end = new_line->buffer_end;
     new_line->number_characters = 0;
 
     if (previous_line != NULL)
@@ -735,6 +779,42 @@ void free_paragraphs(paragraph* ptr)
     free_paragraphs(ptr->next_paragraph);
     free_lines(ptr->paragraph_start);
     free(ptr);
+}
+
+void shuffle_start(paragraph* current_paragraph, line* current_line)
+{
+    for (line* line_ptr = current_line; line_ptr->next_line != NULL; line_ptr = line_ptr->next_line)
+    {
+        if (line_ptr->next_line->number_characters == max_x)
+        {
+            memcpy(line_ptr->buffer_end, line_ptr->next_line->buffer, 1);
+            memmove(line_ptr->next_line->buffer, line_ptr->next_line->buffer + 1, max_x - 1);
+        }
+        else
+        {
+            if (line_ptr->next_line->number_characters == 0)
+            {
+                return;
+            }
+            else
+            {
+                if (line_ptr->next_line->gap_start == line_ptr->next_line->buffer)
+                {
+                    memcpy(line_ptr->buffer_end, line_ptr->next_line->gap_end + 1, 1);
+                    line_ptr->next_line->gap_end++;
+                    line_ptr->next_line->number_characters--;
+                }
+                else
+                {
+                    int move_size = line_ptr->next_line->gap_start - line_ptr->next_line->buffer + 1;
+                    memcpy(line_ptr->buffer_end, line_ptr->next_line->buffer, 1);
+                    memmove(line_ptr->next_line->buffer, line_ptr->next_line->buffer + 1, move_size);
+                    line_ptr->next_line->gap_start--;
+                    line_ptr->next_line->number_characters--;
+                }
+            }
+        }
+    }
 }
 
 void shuffle_end(line* current_line, int line_counter)
