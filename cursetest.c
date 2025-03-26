@@ -27,6 +27,7 @@ struct paragraph
 
 // Functions for altering the buffer
 void addat_cursor(int input, line* current_line);
+void move_left_one(line* current_line);
 void move_cursor_to(line* line, int destination);
 int delete(line* current_line);
 void shuffle_end(line* current_line, int line_counter);
@@ -140,10 +141,6 @@ int main(int argc, char* argv[])
         {
             if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
             {
-                //line* previous_paragraph_end = current_paragraph->previous_paragraph->paragraph_end;
-                //memmove(previous_paragraph_end->gap_start, previous_paragraph_end->gap_end + 1, previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->buffer);
-                //previous_paragraph_end->gap_start += previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->gap_end;
-                //previous_paragraph_end->gap_end = previous_paragraph_end->buffer + max_x - 1;
                 current_paragraph = current_paragraph->previous_paragraph;
                 current_line = current_paragraph->paragraph_end;
                 move_cursor_to(current_line, current_line->number_characters);
@@ -152,23 +149,13 @@ int main(int argc, char* argv[])
             else if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
             {
                 current_line = current_line->previous_line;
-                memmove(current_line->gap_start, current_line->gap_end + 1, current_line->buffer + max_x - current_line->gap_end - 1);
-                current_line->gap_end = current_line->buffer + max_x - 1;
-                current_line->gap_start += current_line->buffer + max_x - current_line->gap_end - 1;
+                int destination = (current_line->number_characters == max_x) ? max_x - 1 : current_line->number_characters;
+                move_cursor_to(current_line, destination);
             }
             // If you're anywhere else in the line
-            else if (current_line->gap_start != current_line->buffer && current_line->number_characters != max_x)
+            else if (current_line->gap_start != current_line->buffer)
             {
-                current_line->gap_start--;
-                *current_line->gap_end = *current_line->gap_start;
-                current_line->gap_end--;     
-                x = current_line->gap_start - current_line->buffer;
-            }
-            else if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer)
-            {
-                current_line->gap_start--;
-                current_line->gap_end--;     
-                x--;
+                move_left_one(current_line);
             }
             clear();
             update_view(current_line);
@@ -482,7 +469,7 @@ int main(int argc, char* argv[])
                 free(empty_line->buffer);
                 free(empty_line);
             }
-            else if (current_line->number_characters == max_x && current_line->next_line != NULL)
+            else if (current_line->number_characters == max_x && current_line->next_line->number_characters > 0)
             {
                 int move_size = current_line->buffer_end - current_line->gap_start + 1;
                 memmove(current_line->gap_start, current_line->gap_start + 1, move_size);
@@ -502,13 +489,13 @@ int main(int argc, char* argv[])
             }
             else if (current_line->number_characters > 0)
             {
-                if (current_line->number_characters == max_x)
+                if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer)
                 {
                     current_line->number_characters--;
                     current_line->gap_start--;
                     current_line->gap_end--;
                 }
-                else
+                else if (current_line->gap_start != current_line->buffer)
                 {
                     current_line->gap_start--;
                     current_line->number_characters--;
@@ -611,13 +598,10 @@ int main(int argc, char* argv[])
             {
                 if (current_line->gap_start == current_line->buffer_end)
                 {
-                    addat_cursor(input, current_line);
                     current_line->next_line = add_line(current_line);
                     current_line = current_line->next_line;
+                    addat_cursor(input, current_line);
                     current_paragraph->paragraph_end = current_line;
-                    y++;
-                    x = 0;
-                    *current_line->gap_end = *current_line->gap_start;
                 }
                 else
                 {
@@ -682,7 +666,6 @@ int main(int argc, char* argv[])
     }
 
     write_paragraphs(paragraphs, write_file);
-    printf("%i\n", current_line->number_characters);
     fclose(write_file);
     free(filename);
     free_paragraphs(paragraphs);
@@ -691,35 +674,59 @@ int main(int argc, char* argv[])
 
 void addat_cursor(int input, line* current_line)
 {
-    line** current_line_reference = &current_line;
-    char** gap_start_reference = &current_line->gap_start;
-
     if (current_line->number_characters < max_x)
     {
         *current_line->gap_start = input;
-        current_line->gap_start++;
         current_line->number_characters++;
+
+        if (current_line->gap_start != current_line->buffer_end)
+        {
+            current_line->gap_start++;
+        }        
     }
     else
     {
         *current_line->gap_start = input;
-        current_line->gap_start++;
+
+        if (current_line->gap_start != current_line->buffer_end)
+        {
+            current_line->gap_start++;
+        }        
+    }
+}
+
+void move_left_one(line* current_line)
+{
+    if (current_line->number_characters == max_x)
+    {
+        current_line->gap_start--;
+        current_line->gap_end--;     
+    }
+    else
+    {
+        current_line->gap_start--;
+        *current_line->gap_end = *current_line->gap_start;
+        current_line->gap_end--;     
     }
 }
 
 void move_cursor_to(line* line, int destination)
 {
     int current_position = line->gap_start - line->buffer;
+
     if (current_position < destination)
     {
-        int move_size = destination - (line->gap_start - line->buffer);
+        int move_size = destination - current_position;
         memmove(line->gap_start, line->gap_end + 1, move_size);
         line->gap_start += move_size;
         line->gap_end += move_size;
     }
     else if (current_position > destination)
     {
-
+    }
+    else
+    {
+        return;
     }
 }
 
