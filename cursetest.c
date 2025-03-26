@@ -27,8 +27,7 @@ struct paragraph
 
 // Functions for altering the buffer
 void addat_cursor(int input, line* current_line);
-void move_right(line* current_line);
-void move_left(line* current_line);
+void move_cursor_to(line* line, int destination);
 int delete(line* current_line);
 void shuffle_end(line* current_line, int line_counter);
 void shuffle_start(paragraph* current_paragraph, line* current_line);
@@ -75,11 +74,12 @@ int main(int argc, char* argv[])
     keypad(stdscr, true);
 
     getmaxyx(stdscr, max_y, max_x);
+
+    // Setting the display value because coordinates are '0 indexed' so the final viewable line is actually max - 1
     display_bottom = max_y - 1;
 
     paragraph* paragraphs = add_paragraph(NULL);
 
-    // These will be used throughout the document to track the current position
     line* current_line = paragraphs->paragraph_start;
     paragraph* current_paragraph = paragraphs;
 
@@ -140,12 +140,13 @@ int main(int argc, char* argv[])
         {
             if (current_line->gap_start == current_line->buffer && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
             {
-                line* previous_paragraph_end = current_paragraph->previous_paragraph->paragraph_end;
-                memmove(previous_paragraph_end->gap_start, previous_paragraph_end->gap_end + 1, previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->buffer);
-                previous_paragraph_end->gap_start += previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->gap_end;
-                previous_paragraph_end->gap_end = previous_paragraph_end->buffer + max_x - 1;
+                //line* previous_paragraph_end = current_paragraph->previous_paragraph->paragraph_end;
+                //memmove(previous_paragraph_end->gap_start, previous_paragraph_end->gap_end + 1, previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->buffer);
+                //previous_paragraph_end->gap_start += previous_paragraph_end->buffer + max_x - 1 - previous_paragraph_end->gap_end;
+                //previous_paragraph_end->gap_end = previous_paragraph_end->buffer + max_x - 1;
                 current_paragraph = current_paragraph->previous_paragraph;
-                current_line = previous_paragraph_end;
+                current_line = current_paragraph->paragraph_end;
+                move_cursor_to(current_line, current_line->number_characters);
             }
             // If at the start of the line and there is a previous line
             else if (current_line->gap_start == current_line->buffer && current_line->previous_line != NULL)
@@ -706,12 +707,20 @@ void addat_cursor(int input, line* current_line)
     }
 }
 
-void move_left(line* current_line)
-{   
-}
-
-void move_right(line* current_line)
+void move_cursor_to(line* line, int destination)
 {
+    int current_position = line->gap_start - line->buffer;
+    if (current_position < destination)
+    {
+        int move_size = destination - (line->gap_start - line->buffer);
+        memmove(line->gap_start, line->gap_end + 1, move_size);
+        line->gap_start += move_size;
+        line->gap_end += move_size;
+    }
+    else if (current_position > destination)
+    {
+
+    }
 }
 
 int delete(line* current_line)
