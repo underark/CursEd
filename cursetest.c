@@ -28,6 +28,7 @@ struct paragraph
 // Functions for altering the buffer
 void addat_cursor(int input, line* current_line);
 void move_left_one(line* current_line);
+void move_right_one(line* current_line);
 void move_cursor_to(line* line, int destination);
 int delete(line* current_line);
 void shuffle_end(line* current_line, int line_counter);
@@ -172,37 +173,17 @@ int main(int argc, char* argv[])
             {
                 current_paragraph = current_paragraph->next_paragraph;
                 current_line = current_paragraph->paragraph_start;
-                current_line->gap_end -= current_line->gap_start - current_line->buffer;
-                memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
-                current_line->gap_start = current_line->buffer;
-                y++;
-                x = 0;
+                move_cursor_to(current_line, 0);
             }
             else if (current_line->gap_start == current_line->buffer_end && current_line->next_line != NULL)
             {
                 current_line = current_line->next_line;
-                if (current_line->gap_start != current_line->buffer)
-                {
-                    current_line->gap_end -= current_line->gap_start - current_line->buffer;
-                    memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
-                    current_line->gap_start = current_line->buffer;
-                }
-                y++;
-                x = 0;
+                move_cursor_to(current_line, 0);
             }
             // Stops us running past the end of the line
-            else if (current_line->gap_start != current_line->buffer + current_line->number_characters && current_line->number_characters != max_x)
+            else if (current_line->gap_start != current_line->buffer + current_line->number_characters)
             {
-                current_line->gap_end++; 
-                *current_line->gap_start = *current_line->gap_end;
-                current_line->gap_start++;
-                x++;
-            }
-            else if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer_end)
-            {
-                current_line->gap_end++; 
-                current_line->gap_start++;
-                x++;
+                move_right_one(current_line);
             }
             clear();
             update_view(current_line);
@@ -599,8 +580,8 @@ int main(int argc, char* argv[])
                 if (current_line->gap_start == current_line->buffer_end)
                 {
                     current_line->next_line = add_line(current_line);
-                    current_line = current_line->next_line;
                     addat_cursor(input, current_line);
+                    current_line = current_line->next_line;
                     current_paragraph->paragraph_end = current_line;
                 }
                 else
@@ -710,6 +691,21 @@ void move_left_one(line* current_line)
     }
 }
 
+void move_right_one(line* current_line)
+{
+    if (current_line->number_characters == max_x)
+    {
+        current_line->gap_start++;
+        current_line->gap_end++;     
+    }
+    else
+    {
+        current_line->gap_end++; 
+        *current_line->gap_start = *current_line->gap_end;
+        current_line->gap_start++;
+    }
+}
+
 void move_cursor_to(line* line, int destination)
 {
     int current_position = line->gap_start - line->buffer;
@@ -718,11 +714,15 @@ void move_cursor_to(line* line, int destination)
     {
         int move_size = destination - current_position;
         memmove(line->gap_start, line->gap_end + 1, move_size);
-        line->gap_start += move_size;
+        line->gap_start = line->buffer + destination;
         line->gap_end += move_size;
     }
     else if (current_position > destination)
     {
+        int move_size = current_position - destination;
+        line->gap_start = line->buffer + destination;
+        line->gap_end -= move_size;
+        memmove(line->gap_end + 1, line->gap_start, move_size);
     }
     else
     {
@@ -930,18 +930,8 @@ void update_view(line* current_line)
 
 void update_cursor_position(line* current_line)
 {
-    if (current_line->line_number == 0)
-    {
-        y = 0;
-    }
-    else if (current_line->line_number % (max_y - 1) == 0)
-    {
-        y = max_y - 1;
-    }
-    else
-    {
-        y = current_line->line_number % (max_y - 1);
-    }
+
+    y = current_line->line_number - display_top;
 
     x = current_line->gap_start - current_line->buffer;
 }
