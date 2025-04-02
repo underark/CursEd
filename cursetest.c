@@ -46,7 +46,7 @@ void print_lines(paragraph* paragraphs);
 void write_paragraphs(paragraph* paragraphs, FILE* write_file);
 void update_view(line* current_line);
 void update_cursor_position(line* current_line);
-void fix_line_numbers(paragraph* current_paragraph, line* current_line);
+void fix_line_numbers(paragraph* current_paragraph);
 
 // These are used to track how many characters a line should be based on terminal size
 int max_x = 0;
@@ -55,6 +55,8 @@ int max_y = 0;
 // These are used to track the coordinates for the cursor
 int x = 0;
 int y = 0;
+int down_fail_value = 0;
+int up_fail_value = 0;
 
 // Tracks where the first line of the display should be drawn from
 int display_top = 0;
@@ -199,8 +201,27 @@ int main(int argc, char* argv[])
             {
                 current_paragraph = current_paragraph->previous_paragraph;
                 current_line = current_paragraph->paragraph_end; 
-                destination = (current_line->number_characters >= destination) ? destination : current_line->number_characters;
-                move_cursor_to(current_line, destination);
+                if (up_fail_value > 0)
+                {
+                    if (current_line->number_characters >= up_fail_value)
+                    {
+                        move_cursor_to(current_line, up_fail_value);
+                        up_fail_value = 0;
+                    }
+                    else
+                    {
+                        move_cursor_to(current_line, current_line->number_characters);
+                    }
+                }
+                else if (current_line->number_characters >= destination)
+                {
+                    move_cursor_to(current_line, destination);
+                }
+                else
+                {
+                    up_fail_value = destination;
+                    move_cursor_to(current_line, current_line->number_characters);
+                }
             }
             else if (current_line->previous_line != NULL)
             {
@@ -217,13 +238,32 @@ int main(int argc, char* argv[])
         else if (input == KEY_DOWN)
         {
             int destination = current_line->gap_start - current_line->buffer;
-            int fail_value = 0;
             if (current_line->next_line == NULL && current_paragraph->next_paragraph != NULL)
             {
                 current_paragraph = current_paragraph->next_paragraph;
                 current_line = current_paragraph->paragraph_start;
-                destination = (current_line->number_characters >= destination) ? destination : current_line->number_characters;
-                move_cursor_to(current_line, destination);
+
+                if (down_fail_value > 0)
+                {
+                    if (current_line->number_characters >= down_fail_value)
+                    {
+                        move_cursor_to(current_line, down_fail_value);
+                        down_fail_value = 0;
+                    }
+                    else
+                    {
+                        move_cursor_to(current_line, current_line->number_characters);
+                    }
+                }
+                else if (current_line->number_characters >= destination)
+                {
+                    move_cursor_to(current_line, destination);
+                }
+                else
+                {
+                    down_fail_value = destination;
+                    move_cursor_to(current_line, current_line->number_characters);
+                }
             }
             else if (current_line->next_line != NULL)
             {
@@ -256,7 +296,7 @@ int main(int argc, char* argv[])
                 }
                 free_lines(original_current->paragraph_start);
                 free(original_current);
-                fix_line_numbers(current_paragraph, current_line);
+                fix_line_numbers(current_paragraph);
             }
             else if (current_line->number_characters == 0 && current_line->previous_line == NULL && current_paragraph->previous_paragraph != NULL)
             {
@@ -272,7 +312,7 @@ int main(int argc, char* argv[])
                 if (current_paragraph->next_paragraph != NULL)
                 {
                     current_paragraph->next_paragraph->previous_paragraph = current_paragraph;
-                    fix_line_numbers(current_paragraph, current_line);
+                    fix_line_numbers(current_paragraph);
                 }
                 free(empty_paragraph->paragraph_start->buffer);
                 free(empty_paragraph->paragraph_start);
@@ -292,7 +332,7 @@ int main(int argc, char* argv[])
                 if (current_line->next_line != NULL)
                 {
                     current_line->next_line->previous_line = current_line;
-                    fix_line_numbers(current_paragraph, current_line);
+                    fix_line_numbers(current_paragraph);
                 }
                 free(empty_line->buffer);
                 free(empty_line);
@@ -312,7 +352,7 @@ int main(int argc, char* argv[])
                     free(current_paragraph->paragraph_end->next_line->buffer);
                     free(current_paragraph->paragraph_end->next_line);
                     current_paragraph->paragraph_end->next_line = NULL;
-                    fix_line_numbers(current_paragraph, current_paragraph->paragraph_end);
+                    fix_line_numbers(current_paragraph);
                 }
             }
             else if (current_line->number_characters > 0)
@@ -347,7 +387,7 @@ int main(int argc, char* argv[])
                     current_paragraph->next_paragraph = original_next;
                     original_next->previous_paragraph = current_paragraph;
                     current_line = current_paragraph->paragraph_start;
-                    fix_line_numbers(current_paragraph, current_line);
+                    fix_line_numbers(current_paragraph);
                 }
             }
             else
@@ -361,7 +401,7 @@ int main(int argc, char* argv[])
                     current_line->gap_end = current_line->buffer_end;
                     current_paragraph = current_paragraph->next_paragraph;
                     current_line = current_paragraph->paragraph_start;
-                    fix_line_numbers(current_paragraph, current_line);
+                    fix_line_numbers(current_paragraph);
                 }
                 else if (current_paragraph->next_paragraph != NULL)
                 {
@@ -377,7 +417,7 @@ int main(int argc, char* argv[])
                     original_next->previous_paragraph = current_paragraph;
                     
                     current_line = current_paragraph->paragraph_start;
-                    fix_line_numbers(current_paragraph, current_line);
+                    fix_line_numbers(current_paragraph);
                 }
             }
         clear();
@@ -406,7 +446,11 @@ int main(int argc, char* argv[])
                     current_line->next_line = add_line(current_line);
                     current_paragraph->paragraph_end = current_line->next_line;
                 }
-                fix_line_numbers(current_paragraph, current_line);
+
+                if (current_paragraph->next_paragraph != NULL)
+                {
+                    fix_line_numbers(current_paragraph->next_paragraph);
+                }
             }
             else if (current_line->number_characters == max_x && current_line->next_line != NULL)
             {
@@ -423,7 +467,11 @@ int main(int argc, char* argv[])
                     memmove(current_line->gap_start + 1, current_line->gap_start, current_line->buffer_end - current_line->gap_start);
                     addat_cursor(input, current_line);
                 }
-                fix_line_numbers(current_paragraph, current_line);
+
+                if (current_paragraph->next_paragraph != NULL)
+                {
+                    fix_line_numbers(current_paragraph->next_paragraph);
+                }
             }
             else
             {
@@ -776,7 +824,7 @@ void update_cursor_position(line* current_line)
     x = current_line->gap_start - current_line->buffer;
 }
 
-void fix_line_numbers(paragraph* current_paragraph, line* current_line)
+void fix_line_numbers(paragraph* current_paragraph)
 {
     for (paragraph* para_ptr = current_paragraph; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
     {
@@ -814,7 +862,6 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
             {
                 fwrite(&enter, 1, 1, write_file);
             }
-            printf("%i\n", ptr->number_characters);
         }
     }
 }
