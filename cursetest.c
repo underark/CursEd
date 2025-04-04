@@ -336,14 +336,15 @@ int main(int argc, char* argv[])
                 free(empty_line->buffer);
                 free(empty_line);
             }
-            else if (current_line->number_characters == max_x && current_line->next_line->number_characters > 0)
+            else if (current_line->number_characters == max_x && current_line->next_line != NULL)
             {
                 int move_size = current_line->buffer_end - current_line->gap_start + 1;
+                current_line->gap_start--;
+                current_line->gap_end--;
                 memmove(current_line->gap_start, current_line->gap_start + 1, move_size);
                 
                 shuffle_start(current_paragraph, current_line);
-                current_line->gap_start--;
-                current_line->gap_end--;
+
 
                 if (current_paragraph->paragraph_end->number_characters == 0)
                 {
@@ -594,6 +595,8 @@ void delete(line* current_line)
 {
     if (current_line->number_characters == max_x && current_line->gap_start != current_line->buffer)
     {
+        current_line->gap_start--;
+        current_line->gap_end--;
         current_line->number_characters--;
     }
     else if (current_line->gap_start != current_line->buffer)
@@ -854,7 +857,7 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
     {
         for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
         {
-            printf("%i\n", ptr->line_number);
+            printf("%i\n", ptr->number_characters);
             for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
             {
                 if (ptr->number_characters == max_x)
