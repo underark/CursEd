@@ -100,6 +100,7 @@ int main(int argc, char* argv[])
                 current_line->next_line = add_line(current_line);
                 current_line->next_line->previous_line = current_line;
                 current_line = current_line->next_line;
+                current_paragraph->paragraph_end = current_line;
 
                 addat_cursor(read_buffer, current_line->previous_line);
             }
@@ -345,17 +346,15 @@ int main(int argc, char* argv[])
                 
                 shuffle_start(current_paragraph, current_line);
 
-
                 if (current_paragraph->paragraph_end->number_characters == 0)
                 {
                     current_paragraph->paragraph_end = current_paragraph->paragraph_end->previous_line;
-                    free(current_paragraph->paragraph_end->next_line->buffer);
-                    free(current_paragraph->paragraph_end->next_line);
+                    free_lines(current_paragraph->paragraph_end->next_line);
                     current_paragraph->paragraph_end->next_line = NULL;
                     fix_line_numbers(current_paragraph);
                 }
             }
-            else if (current_line->number_characters > 0)
+            else
             {
                 delete(current_line);
             }
@@ -475,6 +474,7 @@ int main(int argc, char* argv[])
                     shuffle_end(current_paragraph, current_line, 1);
                     memmove(current_line->gap_start + 1, current_line->gap_start, current_line->buffer_end - current_line->gap_start);
                     addat_cursor(input, current_line);
+                    current_line->gap_end++;
                 }
 
                 if (current_paragraph->next_paragraph != NULL)
@@ -502,6 +502,17 @@ int main(int argc, char* argv[])
         printf("File open failed\n");
         return 1;
     }
+    int i = 0;
+    for (char* ptr = current_line->buffer; ptr <= current_line->buffer_end; ptr++)
+    {
+        if (ptr < current_line->gap_start || ptr > current_line->gap_end)
+        {
+            i++;
+        }
+    }
+    printf("Display characters%i\n", i);
+    printf("Counted characters %i\n", current_line->number_characters);
+    printf("Difference between gap start and end%li\n", current_line->gap_start - current_line->gap_end);
     write_paragraphs(paragraphs, write_file);
     fclose(write_file);
     free(filename);
@@ -714,26 +725,19 @@ void shuffle_start(paragraph* current_paragraph, line* current_line)
         }
         else
         {
-            if (line_ptr->next_line->number_characters == 0)
+            if (line_ptr->next_line->gap_start == line_ptr->next_line->buffer)
             {
-                return;
+                memcpy(line_ptr->buffer_end, line_ptr->next_line->gap_end + 1, 1);
+                line_ptr->next_line->gap_end++;
+                line_ptr->next_line->number_characters--;
             }
             else
             {
-                if (line_ptr->next_line->gap_start == line_ptr->next_line->buffer)
-                {
-                    memcpy(line_ptr->buffer_end, line_ptr->next_line->gap_end + 1, 1);
-                    line_ptr->next_line->gap_end++;
-                    line_ptr->next_line->number_characters--;
-                }
-                else
-                {
-                    int move_size = line_ptr->next_line->gap_start - line_ptr->next_line->buffer + 1;
-                    memcpy(line_ptr->buffer_end, line_ptr->next_line->buffer, 1);
-                    memmove(line_ptr->next_line->buffer, line_ptr->next_line->buffer + 1, move_size);
-                    line_ptr->next_line->gap_start--;
-                    line_ptr->next_line->number_characters--;
-                }
+                int move_size = line_ptr->next_line->gap_start - line_ptr->next_line->buffer;
+                memcpy(line_ptr->buffer_end, line_ptr->next_line->buffer, 1);
+                memmove(line_ptr->next_line->buffer, line_ptr->next_line->buffer + 1, move_size);
+                line_ptr->next_line->gap_start--;
+                line_ptr->next_line->number_characters--;
             }
         }
     }
@@ -741,9 +745,8 @@ void shuffle_start(paragraph* current_paragraph, line* current_line)
 
 void shuffle_end(paragraph* current_paragraph, line* current_line, int line_counter)
 {
-    if (current_line->next_line != NULL && current_line->number_characters == max_x)
+    if (current_line->next_line != NULL)
     {
-        char** next_line_gap_end_reference = &current_line->next_line->gap_end;
         shuffle_end(current_paragraph, current_line->next_line, line_counter + 1);
 
         // On all the previous full lines
@@ -770,7 +773,7 @@ void shuffle_end(paragraph* current_paragraph, line* current_line, int line_coun
         }
     }
     // On the empty line
-    else if (current_line->number_characters < max_x)
+    else
     {
         current_line->gap_end -= current_line->gap_start - current_line->buffer;
         memmove(current_line->gap_end + 1, current_line->buffer, current_line->gap_start - current_line->buffer);
@@ -797,7 +800,7 @@ void print_lines(paragraph* paragraphs)
         {
             if (ptr->line_number >= display_top && ptr->line_number <= display_top + max_y - 1)
             {
-                for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
+                for (char* ptr2 = ptr->buffer; ptr2 <= ptr->buffer_end; ptr2++)
                 {
                     if (ptr->number_characters == max_x)
                     {
@@ -841,6 +844,10 @@ void update_cursor_position(line* current_line)
 
 void fix_line_numbers(paragraph* current_paragraph)
 {
+    if (current_paragraph->next_paragraph == NULL)
+    {
+        return;
+    }
     for (paragraph* para_ptr = current_paragraph; para_ptr != NULL; para_ptr = para_ptr->next_paragraph)
     {
         for (line* line_ptr = para_ptr->paragraph_start; line_ptr != NULL; line_ptr = line_ptr->next_line)
@@ -857,7 +864,6 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
     {
         for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
         {
-            printf("%i\n", ptr->number_characters);
             for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
             {
                 if (ptr->number_characters == max_x)
