@@ -397,10 +397,15 @@ int main(int argc, char* argv[])
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
                     copy_lines(current_line, current_paragraph->next_paragraph);
-                    current_line->number_characters -= current_line->buffer_end - current_line->gap_end;
+                    current_line->number_characters = current_line->gap_start - current_line->buffer;
                     current_line->gap_end = current_line->buffer_end;
+
+                    free_lines(current_line->next_line);
+                    current_line->next_line = NULL;
+
                     current_paragraph = current_paragraph->next_paragraph;
                     current_line = current_paragraph->paragraph_start;
+
                     fix_line_numbers(current_paragraph);
                 }
                 else if (current_paragraph->next_paragraph != NULL)
@@ -410,8 +415,12 @@ int main(int argc, char* argv[])
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
                     copy_lines(current_line, current_paragraph->next_paragraph);
-                    current_line->number_characters -= current_line->buffer_end - current_line->gap_end;
+                    current_line->number_characters = current_line->gap_start - current_line->buffer;
                     current_line->gap_end = current_line->buffer_end;
+
+                    free_lines(current_line->next_line);
+                    current_line->next_line = NULL;
+                    
                     current_paragraph = current_paragraph->next_paragraph;
                     current_paragraph->next_paragraph = original_next;
                     original_next->previous_paragraph = current_paragraph;
@@ -842,6 +851,7 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
     {
         for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
         {
+            printf("%i\n", ptr->number_characters);
             for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
             {
                 if (ptr->number_characters == max_x)
