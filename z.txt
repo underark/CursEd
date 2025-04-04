@@ -6,3 +6,31 @@ City and country: Yokohama, Japan
 Date: 2025/4/4
 
 
+You can add to a file.
+You can Insert new paragraphs between others.
+You can make new paragraphs.
+
+wwwwwwwww
+eee
+wwwwwwwww
+
+You can also add text to the of the line and it will line wrap for you.You can write something in the buffer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+You write something down here.

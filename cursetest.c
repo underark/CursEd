@@ -861,7 +861,7 @@ void print_lines(paragraph* paragraphs)
     {
         for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
         {
-            if (ptr->line_number >= display_top && ptr->line_number <= display_top + max_y - 1)
+            if (ptr->line_number >= display_top && ptr->line_number <= display_bottom)
             {
                 for (char* ptr2 = ptr->buffer; ptr2 <= ptr->buffer_end; ptr2++)
                 {
@@ -890,10 +890,12 @@ void update_view(line* current_line)
     if (current_line->line_number < display_top)
     {
         display_top = current_line->line_number;
+        display_bottom = display_top + view_size;
     }
     else if (current_line->line_number > display_bottom)
     {
         display_top = current_line->line_number - view_size;
+        display_bottom = current_line->line_number;
     }
 }
 
