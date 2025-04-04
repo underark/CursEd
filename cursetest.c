@@ -83,6 +83,11 @@ int main(int argc, char* argv[])
     display_bottom = max_y - 1;
 
     paragraph* paragraphs = add_paragraph(NULL);
+    if (paragraphs == NULL)
+    {
+        printf("Paragraph allocation failed\n");
+        return 1;
+    }
 
     line* current_line = paragraphs->paragraph_start;
     paragraph* current_paragraph = paragraphs;
@@ -98,6 +103,11 @@ int main(int argc, char* argv[])
             if (current_line->number_characters == max_x - 1)
             {
                 current_line->next_line = add_line(current_line);
+                if (current_line->next_line == NULL)
+                {
+                    printf("Line allocation failed\n");
+                    return 1;
+                }
                 current_line->next_line->previous_line = current_line;
                 current_line = current_line->next_line;
                 current_paragraph->paragraph_end = current_line;
@@ -112,6 +122,11 @@ int main(int argc, char* argv[])
             else if (read_buffer == '\n')
             {
                 current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                if (current_paragraph->next_paragraph == NULL)
+                {
+                    printf("Paragraph allocation failed\n");
+                    return 1;
+                }
                 current_paragraph->paragraph_end = current_line;
                 current_paragraph = current_paragraph->next_paragraph;
                 current_line = current_paragraph->paragraph_start;
@@ -373,6 +388,12 @@ int main(int argc, char* argv[])
                 {
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    if (current_paragraph->next_paragraph == NULL)
+                    {
+                        printf("Paragraph allocation failed\n");
+                        return 1;
+                    }
+                
                     current_paragraph = current_paragraph->next_paragraph;
                     current_line = current_paragraph->paragraph_start;
                 }
@@ -382,6 +403,11 @@ int main(int argc, char* argv[])
 
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    if (current_paragraph->next_paragraph == NULL)
+                    {
+                        printf("Paragraph allocation failed\n");
+                        return 1;
+                    }                
                     current_paragraph = current_paragraph->next_paragraph;
                     current_paragraph->next_paragraph = original_next;
                     original_next->previous_paragraph = current_paragraph;
@@ -395,6 +421,11 @@ int main(int argc, char* argv[])
                 {
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    if (current_paragraph->next_paragraph == NULL)
+                    {
+                        printf("Paragraph allocation failed\n");
+                        return 1;
+                    }                
                     copy_lines(current_line, current_paragraph->next_paragraph);
                     current_line->number_characters = current_line->gap_start - current_line->buffer;
                     current_line->gap_end = current_line->buffer_end;
@@ -413,6 +444,11 @@ int main(int argc, char* argv[])
 
                     current_paragraph->paragraph_end = current_line;
                     current_paragraph->next_paragraph = add_paragraph(current_paragraph);
+                    if (current_paragraph->next_paragraph == NULL)
+                    {
+                        printf("Paragraph allocation failed\n");
+                        return 1;
+                    }
                     copy_lines(current_line, current_paragraph->next_paragraph);
                     current_line->number_characters = current_line->gap_start - current_line->buffer;
                     current_line->gap_end = current_line->buffer_end;
@@ -445,6 +481,11 @@ int main(int argc, char* argv[])
                 {
                     addat_cursor(input, current_line);
                     current_line->next_line = add_line(current_line);
+                    if (current_line->next_line == NULL)
+                    {
+                        printf("Line allocation failed\n");
+                        return 1;
+                    }
                     current_line = current_line->next_line;
                     current_paragraph->paragraph_end = current_line;
                 }
@@ -452,6 +493,11 @@ int main(int argc, char* argv[])
                 {
                     addat_cursor(input, current_line);
                     current_line->next_line = add_line(current_line);
+                    if (current_line->next_line == NULL)
+                    {
+                        printf("Line allocation failed\n");
+                        return 1;
+                    }
                     current_paragraph->paragraph_end = current_line->next_line;
                 }
 
@@ -474,7 +520,7 @@ int main(int argc, char* argv[])
                     shuffle_end(current_paragraph, current_line, 1);
                     memmove(current_line->gap_start + 1, current_line->gap_start, current_line->buffer_end - current_line->gap_start);
                     addat_cursor(input, current_line);
-                    current_line->gap_end++;
+                    current_line->gap_end = current_line->gap_start;
                 }
 
                 if (current_paragraph->next_paragraph != NULL)
@@ -510,9 +556,7 @@ int main(int argc, char* argv[])
             i++;
         }
     }
-    printf("Display characters%i\n", i);
-    printf("Counted characters %i\n", current_line->number_characters);
-    printf("Difference between gap start and end%li\n", current_line->gap_start - current_line->gap_end);
+    printf("%li\n", current_line->gap_start - current_line->gap_end);
     write_paragraphs(paragraphs, write_file);
     fclose(write_file);
     free(filename);
@@ -620,10 +664,18 @@ void delete(line* current_line)
 line* add_line(line* previous_line)
 {
     line* new_line = malloc(sizeof(line));
+    if (new_line == NULL)
+    {
+        return NULL;
+    }
     
     new_line->previous_line = previous_line;
     new_line->next_line = NULL;
     new_line->buffer = calloc(max_x, sizeof(char));
+    if (new_line->buffer == NULL)
+    {
+        return NULL;
+    }
     new_line->buffer_end = new_line->buffer + max_x - 1;
     new_line->gap_start = new_line->buffer;
     new_line->gap_end = new_line->buffer_end;
@@ -655,10 +707,18 @@ void free_lines(line* ptr)
 paragraph* add_paragraph(paragraph* previous_paragraph)
 {
     paragraph* new_paragraph = malloc(sizeof(paragraph));
+    if (new_paragraph == NULL)
+    {
+        return NULL;
+    }
 
     new_paragraph->previous_paragraph = previous_paragraph;
     new_paragraph->next_paragraph = NULL;
     new_paragraph->paragraph_start = add_line(NULL);
+    if (new_paragraph->paragraph_start == NULL)
+    {
+        return NULL;
+    }
     new_paragraph->paragraph_end = new_paragraph->paragraph_start;
 
     if (previous_paragraph != NULL)
@@ -869,7 +929,6 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
                 if (ptr->number_characters == max_x)
                 {
                     fwrite(ptr2, 1, 1, write_file);
-                    //printf("%c", *ptr2);
                 }
                 else
                 {
@@ -877,7 +936,6 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
                     {
                         fwrite(ptr2, 1, 1, write_file);
                     }
-                    //printf("%c", *ptr2);
                 }
             }
             if (ptr->next_line == NULL && para_ptr->next_paragraph != NULL)
