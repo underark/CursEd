@@ -175,6 +175,8 @@ int main(int argc, char* argv[])
             {
                 move_left_one(current_line);
             }
+            up_fail_value = 0;
+            down_fail_value = 0;
             clear();
             update_view(current_line);
             update_cursor_position(current_line);
@@ -202,6 +204,8 @@ int main(int argc, char* argv[])
             {
                 move_right_one(current_line);
             }
+            up_fail_value = 0;
+            down_fail_value = 0;
             clear();
             update_view(current_line);
             update_cursor_position(current_line);
