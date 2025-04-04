@@ -556,7 +556,6 @@ int main(int argc, char* argv[])
             i++;
         }
     }
-    printf("%li\n", current_line->gap_start - current_line->gap_end);
     write_paragraphs(paragraphs, write_file);
     fclose(write_file);
     free(filename);
