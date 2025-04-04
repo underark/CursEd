@@ -116,7 +116,6 @@ int main(int argc, char* argv[])
                 current_line = current_paragraph->paragraph_start;
             }
         }
-
         update_view(current_line);
         print_lines(paragraphs);
         
@@ -689,6 +688,10 @@ void copy_lines(line* current_line, paragraph* target_paragraph)
                 target_paragraph->paragraph_end = target_line;
                 addat_cursor(*buffer_ptr, target_line);
             }
+            else if (line_ptr->number_characters == max_x)
+            {
+                addat_cursor(*buffer_ptr, target_line);
+            }
             else if (buffer_ptr < line_ptr->gap_start || buffer_ptr > line_ptr->gap_end)
             {
                 addat_cursor(*buffer_ptr, target_line);
@@ -851,7 +854,7 @@ void write_paragraphs(paragraph* paragraphs, FILE* write_file)
     {
         for (line* ptr = para_ptr->paragraph_start; ptr != NULL; ptr = ptr->next_line)
         {
-            printf("%i\n", ptr->number_characters);
+            printf("%i\n", ptr->line_number);
             for (char* ptr2 = ptr->buffer; ptr2 < ptr->buffer + max_x; ptr2++)
             {
                 if (ptr->number_characters == max_x)
